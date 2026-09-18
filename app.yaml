@@ -1,0 +1,10 @@
+runtime: java17
+instance_class: F1
+handlers:
+  - url: /.*
+    script: auto
+env_variables:
+  DB_URL: "jdbc:postgresql://dpg-d5f3gnhr0fns73e59kb0-a.oregon-postgres.render.com:5432/fireeyes_u32l?sslmode=require"
+  DB_USERNAME: "fireeyes_u32l_user"
+  DB_PASSWORD: "Bj5WJyTPCry5MYtjr0zxevwXTHwwqQhi"
+  TERMII_API_KEY: "TLbkDkdbzTvdwHKsyPAmTshoMKbFnqidbWRDpAxfpofaDiOGGBDpPCcwaHpuMk"

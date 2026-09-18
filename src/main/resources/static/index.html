@@ -1,0 +1,2513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Disease Detector</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            color: #f8fafc;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #22c55e;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #f8fafc;
+        }
+
+        .video-container {
+            background: #020617;
+            border-radius: 10px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #videoStream {
+            width: 100%;
+            height: auto;
+            max-height: 700px;
+            object-fit: contain;
+            display: none;
+            background: #020617;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: #64748b;
+            padding: 40px;
+        }
+
+        .video-placeholder .icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background: #475569;
+        }
+
+        button.success {
+            background: #16a34a;
+        }
+
+        button.danger {
+            background: #dc2626;
+        }
+
+        button.warning {
+            background: #d97706;
+        }
+
+        .sensor-data {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .sensor-item {
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 18px 10px;
+            text-align: center;
+        }
+
+        .sensor-icon {
+            display: block;
+            font-size: 30px;
+            margin-bottom: 8px;
+        }
+
+        .sensor-value {
+            font-size: 25px;
+            font-weight: bold;
+            color: #f8fafc;
+            margin-bottom: 5px;
+        }
+
+        .sensor-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .sensor-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .sensor-status.valid {
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.12);
+        }
+
+        .sensor-status.invalid {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .sensor-status.warning {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .sensor-status.wet {
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.12);
+        }
+
+        .sensor-footer {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .detection-result {
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .detection-result h3 {
+            margin-bottom: 15px;
+            color: #f8fafc;
+        }
+
+        .detection-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .detection-item:last-child {
+            border-bottom: none;
+        }
+
+        .confidence {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        .upload-area {
+            border: 2px dashed #475569;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #2563eb;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .logs {
+            background: #020617;
+            border-radius: 10px;
+            padding: 15px;
+            height: 250px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log {
+            padding: 5px 0;
+            border-bottom: 1px solid #1e293b;
+            word-break: break-word;
+        }
+
+        .log-time {
+            color: #64748b;
+        }
+
+        .log-info {
+            color: #94a3b8;
+        }
+
+        .log-success {
+            color: #22c55e;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .log-sensor {
+            color: #38bdf8;
+        }
+
+        .device-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .info-item {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            color: #64748b;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #f8fafc;
+            font-size: 13px;
+            word-break: break-word;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #334155;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .notification {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: #1e293b;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 1000;
+        }
+
+        .notification.success {
+            border-left: 4px solid #22c55e;
+        }
+
+        .notification.error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .notification.info {
+            border-left: 4px solid #38bdf8;
+        }
+
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 650px) {
+            .sensor-data {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 450px) {
+            .sensor-data {
+                grid-template-columns: 1fr;
+            }
+
+            .device-info {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 21px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <div>
+            <h1>🌱 Crop Disease Detector</h1>
+        </div>
+
+        <div class="connection-status">
+            <span class="status-dot" id="connectionDot"></span>
+            <span id="connectionText">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="main-grid">
+
+        <div>
+
+            <div class="card">
+
+                <h2>📷 Live Camera</h2>
+
+                <div class="video-container">
+
+                    <img
+                            id="videoStream"
+                            alt="Live camera stream"
+                    >
+
+                    <div
+                            class="video-placeholder"
+                            id="videoPlaceholder"
+                    >
+                        <div class="icon">📷</div>
+                        <div>Camera stream not active</div>
+                    </div>
+
+                </div>
+
+                <div class="controls">
+
+                    <button
+                            class="success"
+                            onclick="startStream()"
+                    >
+                        ▶ Start Stream
+                    </button>
+
+                    <button
+                            class="danger"
+                            onclick="stopStream()"
+                    >
+                        ■ Stop Stream
+                    </button>
+
+                    <button
+                            class="secondary"
+                            onclick="captureImage()"
+                    >
+                        📸 Capture
+                    </button>
+
+                    <button
+                            class="secondary"
+                            onclick="getStatus()"
+                    >
+                        📡 Status
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h2>🔬 Detection Result</h2>
+
+                <div
+                        class="loading"
+                        id="detectionLoading"
+                >
+                    <div class="spinner"></div>
+
+                    <p style="margin-top:10px;">
+                        Analyzing image...
+                    </p>
+                </div>
+
+                <div
+                        class="detection-result"
+                        id="detectionResult"
+                >
+
+                    <div class="detection-item">
+                        <span>Disease</span>
+                        <strong id="diseaseValue">--</strong>
+                    </div>
+
+                    <div class="detection-item">
+                        <span>Confidence</span>
+                        <span
+                                class="confidence"
+                                id="confidenceValue"
+                        >
+                            --
+                        </span>
+                    </div>
+
+                    <div class="detection-item">
+                        <span>Status</span>
+                        <strong id="detectionStatus">--</strong>
+                    </div>
+
+                    <div class="detection-item">
+                        <span>Treatment</span>
+                        <span id="treatmentValue">--</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h2>📤 Image Detection</h2>
+
+                <div
+                        class="upload-area"
+                        onclick="document.getElementById('fileInput').click()"
+                >
+
+                    <div style="font-size:40px;">📁</div>
+
+                    <p style="margin-top:10px;">
+                        Click to upload crop image
+                    </p>
+
+                    <p
+                            style="
+                            font-size:12px;
+                            color:#64748b;
+                            margin-top:5px;
+                        "
+                    >
+                        JPG, JPEG or PNG
+                    </p>
+
+                </div>
+
+                <input
+                        type="file"
+                        id="fileInput"
+                        accept="image/*"
+                        onchange="processImageFile(this.files[0])"
+                >
+
+            </div>
+
+        </div>
+
+
+        <div>
+
+            <div class="card">
+
+                <h2>🌡️ Environmental Sensors</h2>
+
+                <div
+                        class="sensor-data"
+                        id="sensorData"
+                >
+
+                    <div class="sensor-item">
+
+                        <span class="sensor-icon">🌡️</span>
+
+                        <div
+                                class="sensor-value"
+                                id="temperatureValue"
+                        >
+                            --.-
+                        </div>
+
+                        <div class="sensor-label">
+                            Temperature (°C)
+                        </div>
+
+                        <div
+                                class="sensor-status invalid"
+                                id="tempStatus"
+                        >
+                            No data
+                        </div>
+
+                    </div>
+
+
+                    <div class="sensor-item">
+
+                        <span class="sensor-icon">💧</span>
+
+                        <div
+                                class="sensor-value"
+                                id="humidityValue"
+                        >
+                            --.-
+                        </div>
+
+                        <div class="sensor-label">
+                            Humidity (%)
+                        </div>
+
+                        <div
+                                class="sensor-status invalid"
+                                id="humidityStatus"
+                        >
+                            No data
+                        </div>
+
+                    </div>
+
+
+                    <div class="sensor-item">
+
+                        <span class="sensor-icon">🌱</span>
+
+                        <div
+                                class="sensor-value"
+                                id="soilMoistureValue"
+                        >
+                            --.-
+                        </div>
+
+                        <div class="sensor-label">
+                            Soil Moisture (%)
+                        </div>
+
+                        <div
+                                class="sensor-status invalid"
+                                id="soilMoistureStatus"
+                        >
+                            No data
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="sensor-footer">
+
+                    <span id="sensorStatus">
+                        Sensor offline
+                    </span>
+
+                    <span id="sensorUpdateTime">
+                        Never updated
+                    </span>
+
+                </div>
+
+
+                <div class="controls">
+
+                    <button
+                            class="secondary"
+                            onclick="requestSensorData()"
+                    >
+                        🔄 Refresh Sensors
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h2>📱 Device Information</h2>
+
+                <div class="device-info">
+
+                    <div class="info-item">
+
+                        <div class="info-label">
+                            Device ID
+                        </div>
+
+                        <div
+                                class="info-value"
+                                id="deviceIdValue"
+                        >
+                            camera_01
+                        </div>
+
+                    </div>
+
+
+                    <div class="info-item">
+
+                        <div class="info-label">
+                            Location
+                        </div>
+
+                        <div
+                                class="info-value"
+                                id="locationValue"
+                        >
+                            Field_A
+                        </div>
+
+                    </div>
+
+
+                    <div class="info-item">
+
+                        <div class="info-label">
+                            Crop Type
+                        </div>
+
+                        <div
+                                class="info-value"
+                                id="cropTypeValue"
+                        >
+                            Tomato
+                        </div>
+
+                    </div>
+
+
+                    <div class="info-item">
+
+                        <div class="info-label">
+                            Connection
+                        </div>
+
+                        <div
+                                class="info-value"
+                                id="deviceConnectionValue"
+                        >
+                            Offline
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h2>📋 System Logs</h2>
+
+                <div
+                        class="logs"
+                        id="logs"
+                ></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div
+        class="notification"
+        id="notification"
+></div>
+
+
+<script>
+
+    const WS_URL =
+        "wss://crop-disease-detector-8nqt.onrender.com:443/camera-stream";
+
+    const API_URL =
+        "https://crop-disease-detector-8nqt.onrender.com:443";
+
+    const DEVICE_ID = "camera_01";
+    const LOCATION = "Field_A";
+    const CROP_TYPE = "Tomato";
+
+
+    let socket = null;
+    let reconnectTimer = null;
+    let heartbeatTimer = null;
+
+    let lastTemperature = null;
+    let lastHumidity = null;
+    let lastSoilMoisture = null;
+
+    let sensorValid = false;
+    let lastSensorUpdate = null;
+    let streamActive = false;
+
+    let currentVideoUrl = null;
+
+
+    const videoStream =
+        document.getElementById("videoStream");
+
+    const videoPlaceholder =
+        document.getElementById("videoPlaceholder");
+
+    const connectionDot =
+        document.getElementById("connectionDot");
+
+    const connectionText =
+        document.getElementById("connectionText");
+
+    const temperatureValue =
+        document.getElementById("temperatureValue");
+
+    const humidityValue =
+        document.getElementById("humidityValue");
+
+    const soilMoistureValue =
+        document.getElementById("soilMoistureValue");
+
+    const tempStatus =
+        document.getElementById("tempStatus");
+
+    const humidityStatus =
+        document.getElementById("humidityStatus");
+
+    const soilMoistureStatus =
+        document.getElementById("soilMoistureStatus");
+
+    const sensorStatus =
+        document.getElementById("sensorStatus");
+
+    const sensorUpdateTime =
+        document.getElementById("sensorUpdateTime");
+
+    const logs =
+        document.getElementById("logs");
+
+
+    function addLog(type, message) {
+
+        const time =
+            new Date().toLocaleTimeString();
+
+        const log =
+            document.createElement("div");
+
+        log.className =
+            "log log-" + type;
+
+        log.innerHTML =
+            `<span class="log-time">[${time}]</span> ${escapeHtml(message)}`;
+
+        logs.appendChild(log);
+
+        logs.scrollTop =
+            logs.scrollHeight;
+    }
+
+
+    function escapeHtml(value) {
+
+        const div =
+            document.createElement("div");
+
+        div.textContent =
+            String(value);
+
+        return div.innerHTML;
+    }
+
+
+    function showNotification(
+        message,
+        type = "info"
+    ) {
+
+        const notification =
+            document.getElementById("notification");
+
+        notification.textContent =
+            message;
+
+        notification.className =
+            "notification " + type;
+
+        notification.style.display =
+            "block";
+
+        setTimeout(() => {
+
+            notification.style.display =
+                "none";
+
+        }, 3000);
+    }
+
+
+    function connectWebSocket() {
+
+        if (
+            socket &&
+            (
+                socket.readyState === WebSocket.OPEN ||
+                socket.readyState === WebSocket.CONNECTING
+            )
+        ) {
+            return;
+        }
+
+        addLog(
+            "info",
+            "Connecting to WebSocket..."
+        );
+
+        socket =
+            new WebSocket(WS_URL);
+
+        socket.binaryType =
+            "blob";
+
+
+        socket.onopen = function() {
+
+            connectionDot.classList.add(
+                "connected"
+            );
+
+            connectionText.textContent =
+                "Connected";
+
+            document.getElementById(
+                "deviceConnectionValue"
+            ).textContent =
+                "Online";
+
+            addLog(
+                "success",
+                "WebSocket connected"
+            );
+
+            registerDevice();
+
+            startHeartbeat();
+
+        };
+
+
+        socket.onclose = function() {
+
+            connectionDot.classList.remove(
+                "connected"
+            );
+
+            connectionText.textContent =
+                "Disconnected";
+
+            document.getElementById(
+                "deviceConnectionValue"
+            ).textContent =
+                "Offline";
+
+            addLog(
+                "error",
+                "WebSocket disconnected"
+            );
+
+            stopHeartbeat();
+
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+            }
+
+            reconnectTimer =
+                setTimeout(
+                    connectWebSocket,
+                    5000
+                );
+
+        };
+
+
+        socket.onerror = function() {
+
+            addLog(
+                "error",
+                "WebSocket error"
+            );
+
+        };
+
+
+        socket.onmessage = function(event) {
+
+            if (event.data instanceof Blob) {
+
+                handleVideoBlob(
+                    event.data
+                );
+
+                return;
+            }
+
+
+            if (event.data instanceof ArrayBuffer) {
+
+                const blob =
+                    new Blob(
+                        [event.data],
+                        {
+                            type: "image/jpeg"
+                        }
+                    );
+
+                handleVideoBlob(blob);
+
+                return;
+            }
+
+
+            if (
+                typeof event.data === "string"
+            ) {
+
+                handleMessage(
+                    event.data
+                );
+
+                return;
+            }
+
+
+            addLog(
+                "info",
+                "Unknown WebSocket message received"
+            );
+
+        };
+
+    }
+
+
+    function handleVideoBlob(blob) {
+
+        if (!blob || blob.size === 0) {
+
+            addLog(
+                "error",
+                "Received empty camera frame"
+            );
+
+            return;
+        }
+
+
+        addLog(
+            "info",
+            `Camera frame received: ${blob.size} bytes`
+        );
+
+
+        const imageBlob =
+            blob.type
+                ? blob
+                : new Blob(
+                    [blob],
+                    {
+                        type: "image/jpeg"
+                    }
+                );
+
+
+        const imageUrl =
+            URL.createObjectURL(
+                imageBlob
+            );
+
+
+        if (currentVideoUrl) {
+
+            URL.revokeObjectURL(
+                currentVideoUrl
+            );
+
+        }
+
+
+        currentVideoUrl =
+            imageUrl;
+
+
+        videoStream.onload = function() {
+
+            videoStream.style.display =
+                "block";
+
+            videoPlaceholder.style.display =
+                "none";
+
+            streamActive =
+                true;
+
+        };
+
+
+        videoStream.onerror = function() {
+
+            addLog(
+                "error",
+                "Failed to display camera JPEG frame"
+            );
+
+            videoStream.style.display =
+                "none";
+
+            videoPlaceholder.style.display =
+                "block";
+
+        };
+
+
+        videoStream.src =
+            imageUrl;
+
+    }
+
+
+    function registerDevice() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+            return;
+        }
+
+
+        const message = {
+
+            type: "register",
+
+            device_id:
+            DEVICE_ID,
+
+            location:
+            LOCATION,
+
+            cropType:
+            CROP_TYPE
+
+        };
+
+
+        socket.send(
+            JSON.stringify(message)
+        );
+
+
+        addLog(
+            "info",
+            "Device registration sent"
+        );
+
+    }
+
+
+    function startHeartbeat() {
+
+        stopHeartbeat();
+
+
+        heartbeatTimer =
+            setInterval(() => {
+
+                if (
+                    socket &&
+                    socket.readyState === WebSocket.OPEN
+                ) {
+
+                    socket.send(
+                        JSON.stringify({
+                            type: "ping"
+                        })
+                    );
+
+                }
+
+            }, 30000);
+
+    }
+
+
+    function stopHeartbeat() {
+
+        if (heartbeatTimer) {
+
+            clearInterval(
+                heartbeatTimer
+            );
+
+            heartbeatTimer =
+                null;
+
+        }
+
+    }
+
+
+    function handleMessage(data) {
+
+        if (
+            data instanceof Blob
+        ) {
+
+            handleVideoBlob(data);
+
+            return;
+
+        }
+
+
+        if (
+            data instanceof ArrayBuffer
+        ) {
+
+            handleVideoBlob(
+                new Blob(
+                    [data],
+                    {
+                        type: "image/jpeg"
+                    }
+                )
+            );
+
+            return;
+
+        }
+
+
+        const text =
+            String(data);
+
+
+        let json;
+
+
+        try {
+
+            json =
+                JSON.parse(text);
+
+        } catch (error) {
+
+            handleText(text);
+
+            return;
+
+        }
+
+
+        if (!json || typeof json !== "object") {
+
+            return;
+
+        }
+
+
+        const type =
+            json.type ||
+            json.messageType ||
+            json.event;
+
+
+        switch (type) {
+
+            case "pong":
+
+                addLog(
+                    "info",
+                    "Heartbeat received"
+                );
+
+                break;
+
+
+            case "ping":
+
+                if (
+                    socket &&
+                    socket.readyState === WebSocket.OPEN
+                ) {
+
+                    socket.send(
+                        JSON.stringify({
+                            type: "pong"
+                        })
+                    );
+
+                }
+
+                break;
+
+
+            case "system":
+
+                addLog(
+                    "info",
+                    json.message ||
+                    "System message"
+                );
+
+                break;
+
+
+            case "register":
+
+            case "device_registered":
+
+                addLog(
+                    "success",
+                    "Device registered successfully"
+                );
+
+                break;
+
+
+            case "sensor_data":
+
+                handleSensorMessage(json);
+
+                break;
+
+
+            case "status":
+
+            case "status_response":
+
+                handleStatus(json);
+
+                break;
+
+
+            case "command_response":
+
+                addLog(
+                    "info",
+                    json.message ||
+                    "Command response received"
+                );
+
+                if (
+                    hasSensorData(json)
+                ) {
+
+                    handleSensorMessage(json);
+
+                }
+
+                break;
+
+
+            case "detection":
+
+            case "comprehensive_detection":
+
+                handleDetection(json);
+
+                break;
+
+
+            case "echo":
+
+                addLog(
+                    "info",
+                    json.message ||
+                    "Echo received"
+                );
+
+                break;
+
+
+            default:
+
+                if (
+                    hasSensorData(json)
+                ) {
+
+                    handleSensorMessage(json);
+
+                } else {
+
+                    addLog(
+                        "info",
+                        JSON.stringify(json)
+                    );
+
+                }
+
+                break;
+
+        }
+
+    }
+
+
+    function hasSensorData(json) {
+
+        return (
+            json &&
+            (
+                json.temperature !== undefined ||
+                json.humidity !== undefined ||
+                json.soilMoisture !== undefined
+            )
+        );
+
+    }
+
+
+    function handleSensorMessage(json) {
+
+        const temperature =
+            getValidNumber(
+                json.temperature
+            );
+
+        const humidity =
+            getValidNumber(
+                json.humidity
+            );
+
+        const soilMoisture =
+            getValidNumber(
+                json.soilMoisture
+            );
+
+
+        const temperatureText =
+            temperature !== null
+                ? temperature.toFixed(1)
+                : "--";
+
+
+        const humidityText =
+            humidity !== null
+                ? humidity.toFixed(1)
+                : "--";
+
+
+        const soilText =
+            soilMoisture !== null
+                ? soilMoisture.toFixed(1)
+                : "--";
+
+
+        addLog(
+            "sensor",
+            `🌡️ ${temperatureText}°C | 💧 ${humidityText}% | 🌱 Soil: ${soilText}%`
+        );
+
+
+        updateSensorData(
+            temperature,
+            humidity,
+            soilMoisture,
+            json.soilStatus
+        );
+
+    }
+
+
+    function handleText(data) {
+
+        if (
+            data instanceof Blob
+        ) {
+
+            handleVideoBlob(data);
+
+            return;
+
+        }
+
+
+        if (
+            data instanceof ArrayBuffer
+        ) {
+
+            handleVideoBlob(
+                new Blob(
+                    [data],
+                    {
+                        type: "image/jpeg"
+                    }
+                )
+            );
+
+            return;
+
+        }
+
+
+        const text =
+            String(data);
+
+
+        if (
+            text
+                .toLowerCase()
+                .includes("pong")
+        ) {
+
+            addLog(
+                "info",
+                "Heartbeat received"
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            const json =
+                JSON.parse(text);
+
+
+            if (
+                hasSensorData(json)
+            ) {
+
+                handleSensorMessage(json);
+
+                return;
+
+            }
+
+        } catch (error) {
+
+        }
+
+
+        addLog(
+            "info",
+            text
+        );
+
+    }
+
+
+    function getValidNumber(value) {
+
+        if (
+            value === undefined ||
+            value === null ||
+            value === ""
+        ) {
+
+            return null;
+
+        }
+
+
+        const number =
+            Number(value);
+
+
+        if (
+            !Number.isFinite(number)
+        ) {
+
+            return null;
+
+        }
+
+
+        return number;
+
+    }
+
+
+    function getSoilMoistureStatus(
+        moisture
+    ) {
+
+        const value =
+            Number(moisture);
+
+
+        if (
+            !Number.isFinite(value)
+        ) {
+
+            return {
+
+                label:
+                    "No data",
+
+                className:
+                    "invalid"
+
+            };
+
+        }
+
+
+        if (value < 20) {
+
+            return {
+
+                label:
+                    "🔴 DRY",
+
+                className:
+                    "invalid"
+
+            };
+
+        }
+
+
+        if (value < 40) {
+
+            return {
+
+                label:
+                    "🟠 LOW",
+
+                className:
+                    "warning"
+
+            };
+
+        }
+
+
+        if (value <= 70) {
+
+            return {
+
+                label:
+                    "🟢 OPTIMAL",
+
+                className:
+                    "valid"
+
+            };
+
+        }
+
+
+        return {
+
+            label:
+                "🔵 WET",
+
+            className:
+                "wet"
+
+        };
+
+    }
+
+
+    function updateSensorData(
+        temperature,
+        humidity,
+        soilMoisture,
+        soilStatusFromServer = null
+    ) {
+
+        const temp =
+            getValidNumber(
+                temperature
+            );
+
+        const hum =
+            getValidNumber(
+                humidity
+            );
+
+        const soil =
+            getValidNumber(
+                soilMoisture
+            );
+
+
+        const hasTemperature =
+            temp !== null;
+
+
+        const hasHumidity =
+            hum !== null;
+
+
+        const hasSoil =
+            soil !== null;
+
+
+        if (hasTemperature) {
+
+            lastTemperature =
+                temp;
+
+
+            temperatureValue.textContent =
+                lastTemperature.toFixed(1);
+
+
+            tempStatus.textContent =
+                "✓ Active";
+
+
+            tempStatus.className =
+                "sensor-status valid";
+
+        }
+
+
+        if (hasHumidity) {
+
+            lastHumidity =
+                hum;
+
+
+            humidityValue.textContent =
+                lastHumidity.toFixed(1);
+
+
+            humidityStatus.textContent =
+                "✓ Active";
+
+
+            humidityStatus.className =
+                "sensor-status valid";
+
+        }
+
+
+        if (hasSoil) {
+
+            lastSoilMoisture =
+                Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        soil
+                    )
+                );
+
+
+            soilMoistureValue.textContent =
+                lastSoilMoisture.toFixed(1);
+
+
+            const calculatedStatus =
+                getSoilMoistureStatus(
+                    lastSoilMoisture
+                );
+
+
+            let statusLabel =
+                calculatedStatus.label;
+
+
+            let statusClass =
+                calculatedStatus.className;
+
+
+            if (
+                soilStatusFromServer
+            ) {
+
+                const serverStatus =
+                    String(
+                        soilStatusFromServer
+                    )
+                        .trim()
+                        .toUpperCase();
+
+
+                if (
+                    serverStatus === "DRY"
+                ) {
+
+                    statusLabel =
+                        "🔴 DRY";
+
+                    statusClass =
+                        "invalid";
+
+                } else if (
+                    serverStatus === "LOW"
+                ) {
+
+                    statusLabel =
+                        "🟠 LOW";
+
+                    statusClass =
+                        "warning";
+
+                } else if (
+                    serverStatus === "OPTIMAL"
+                ) {
+
+                    statusLabel =
+                        "🟢 OPTIMAL";
+
+                    statusClass =
+                        "valid";
+
+                } else if (
+                    serverStatus === "WET"
+                ) {
+
+                    statusLabel =
+                        "🔵 WET";
+
+                    statusClass =
+                        "wet";
+
+                }
+
+            }
+
+
+            soilMoistureStatus.textContent =
+                statusLabel;
+
+
+            soilMoistureStatus.className =
+                "sensor-status " +
+                statusClass;
+
+        }
+
+
+        if (
+            hasTemperature ||
+            hasHumidity ||
+            hasSoil
+        ) {
+
+            sensorValid =
+                true;
+
+
+            lastSensorUpdate =
+                new Date();
+
+
+            sensorStatus.textContent =
+                "Sensor online";
+
+
+            sensorStatus.style.color =
+                "#22c55e";
+
+
+            sensorUpdateTime.textContent =
+                lastSensorUpdate
+                    .toLocaleTimeString();
+
+        }
+
+    }
+
+
+    function handleStatus(json) {
+
+        if (
+            hasSensorData(json)
+        ) {
+
+            handleSensorMessage(json);
+
+        }
+
+
+        if (
+            json.streaming !== undefined
+        ) {
+
+            streamActive =
+                Boolean(
+                    json.streaming
+                );
+
+            updateStreamUI();
+
+        }
+
+
+        addLog(
+            "info",
+            "Device status received"
+        );
+
+    }
+
+
+    function handleDetection(json) {
+
+        const primaryResult =
+            json.topResult ||
+            (
+                Array.isArray(json.results) &&
+                json.results.length > 0
+                    ? json.results[0]
+                    : null
+            ) ||
+            json;
+
+        const disease =
+            primaryResult.className ||
+            json.disease ||
+            json.diseaseName ||
+            json.prediction ||
+            json.label ||
+            "Unknown";
+
+
+        const confidence =
+            primaryResult.probability ??
+            json.confidence ??
+            json.topConfidence ??
+            json.score ??
+            0;
+
+
+        const status =
+            json.status ||
+            (
+                String(disease)
+                    .toLowerCase()
+                    .includes("healthy")
+                    ? "HEALTHY"
+                    : "DETECTED"
+            );
+
+
+        const treatment =
+            primaryResult.treatment ||
+            json.treatment ||
+            json.recommendation ||
+            json.advice ||
+            "--";
+
+
+        const availableAiModes =
+            Array.isArray(json.availableAiModes)
+                ? json.availableAiModes
+                : (
+                    json.aiStack &&
+                    Array.isArray(json.aiStack.installedModes)
+                        ? json.aiStack.installedModes
+                        : []
+                );
+
+
+        const djlEngines =
+            Array.isArray(json.djlEngines)
+                ? json.djlEngines
+                : (
+                    json.aiStack &&
+                    Array.isArray(json.aiStack.djlEngines)
+                        ? json.aiStack.djlEngines
+                        : []
+                );
+
+
+        const aiLogParts = [];
+
+        if (json.aiMode) {
+            aiLogParts.push(
+                "AI mode: " + json.aiMode
+            );
+        }
+
+        if (availableAiModes.length > 0) {
+            aiLogParts.push(
+                "Installed AI modes: " + availableAiModes.join(", ")
+            );
+        }
+
+        if (djlEngines.length > 0) {
+            aiLogParts.push(
+                "DJL engines: " + djlEngines.join(", ")
+            );
+        }
+
+
+        document.getElementById(
+            "diseaseValue"
+        ).textContent =
+            disease;
+
+
+        document.getElementById(
+            "confidenceValue"
+        ).textContent =
+            formatConfidence(
+                confidence
+            );
+
+
+        document.getElementById(
+            "detectionStatus"
+        ).textContent =
+            status;
+
+
+        document.getElementById(
+            "treatmentValue"
+        ).textContent =
+            treatment;
+
+        if (aiLogParts.length > 0) {
+
+            addLog(
+                "info",
+                aiLogParts.join(" | ")
+            );
+        }
+
+
+        addLog(
+            "success",
+            `Detection: ${disease} (${formatConfidence(confidence)})`
+        );
+
+    }
+
+
+    function formatConfidence(value) {
+
+        let number =
+            Number(value);
+
+
+        if (
+            !Number.isFinite(number)
+        ) {
+
+            return "--";
+
+        }
+
+
+        if (
+            number <= 1
+        ) {
+
+            number *= 100;
+
+        }
+
+
+        return (
+            number.toFixed(1) +
+            "%"
+        );
+
+    }
+
+
+    function startStream() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+
+            showNotification(
+                "WebSocket is not connected",
+                "error"
+            );
+
+            connectWebSocket();
+
+            return;
+
+        }
+
+
+        socket.send(
+            JSON.stringify({
+
+                type:
+                    "start_stream",
+
+                device_id:
+                DEVICE_ID
+
+            })
+        );
+
+
+        streamActive =
+            true;
+
+
+        updateStreamUI();
+
+
+        addLog(
+            "success",
+            "Start stream command sent"
+        );
+
+    }
+
+
+    function stopStream() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+
+            return;
+
+        }
+
+
+        socket.send(
+            JSON.stringify({
+
+                type:
+                    "stop_stream",
+
+                device_id:
+                DEVICE_ID
+
+            })
+        );
+
+
+        streamActive =
+            false;
+
+
+        updateStreamUI();
+
+
+        addLog(
+            "info",
+            "Stop stream command sent"
+        );
+
+    }
+
+
+    function updateStreamUI() {
+
+        if (
+            streamActive
+        ) {
+
+            if (
+                videoStream.src
+            ) {
+
+                videoStream.style.display =
+                    "block";
+
+                videoPlaceholder.style.display =
+                    "none";
+
+            }
+
+        } else {
+
+            videoStream.style.display =
+                "none";
+
+            videoPlaceholder.style.display =
+                "block";
+
+        }
+
+    }
+
+
+    function captureImage() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+
+            showNotification(
+                "WebSocket is not connected",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        socket.send(
+            JSON.stringify({
+
+                type:
+                    "capture",
+
+                device_id:
+                DEVICE_ID
+
+            })
+        );
+
+
+        addLog(
+            "info",
+            "Capture command sent"
+        );
+
+    }
+
+
+    function getStatus() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+
+            showNotification(
+                "WebSocket is not connected",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        socket.send(
+            JSON.stringify({
+
+                type:
+                    "get_status",
+
+                device_id:
+                DEVICE_ID
+
+            })
+        );
+
+
+        addLog(
+            "info",
+            "Status request sent"
+        );
+
+    }
+
+
+    function requestSensorData() {
+
+        if (
+            !socket ||
+            socket.readyState !== WebSocket.OPEN
+        ) {
+
+            showNotification(
+                "WebSocket is not connected",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        socket.send(
+            JSON.stringify({
+
+                type:
+                    "get_sensor",
+
+                device_id:
+                DEVICE_ID
+
+            })
+        );
+
+
+        addLog(
+            "sensor",
+            "Sensor data requested"
+        );
+
+    }
+
+
+    function processImageFile(file) {
+
+        if (!file) {
+            return;
+        }
+
+
+        if (
+            !file.type.startsWith(
+                "image/"
+            )
+        ) {
+
+            showNotification(
+                "Please select an image file",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        sendImageForDetection(file);
+
+    }
+
+
+    async function sendImageForDetection(
+        file
+    ) {
+
+        const loading =
+            document.getElementById(
+                "detectionLoading"
+            );
+
+
+        loading.style.display =
+            "block";
+
+
+        try {
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "image",
+                file
+            );
+
+
+            formData.append(
+                "device_id",
+                DEVICE_ID
+            );
+
+
+            formData.append(
+                "cropType",
+                CROP_TYPE
+            );
+
+
+            const response =
+                await fetch(
+                    API_URL +
+                    "/api/detect/image",
+                    {
+
+                        method:
+                            "POST",
+
+                        body:
+                        formData
+
+                    }
+                );
+
+
+            let data;
+
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (error) {
+
+                throw new Error(
+                    "Server returned an invalid response"
+                );
+
+            }
+
+
+            if (
+                !response.ok
+            ) {
+
+                throw new Error(
+                    data.error ||
+                    "Detection failed"
+                );
+
+            }
+
+
+            handleDetection(
+                data
+            );
+
+
+            showNotification(
+                "Detection completed",
+                "success"
+            );
+
+
+        } catch (error) {
+
+            addLog(
+                "error",
+                "Detection error: " +
+                error.message
+            );
+
+
+            showNotification(
+                error.message,
+                "error"
+            );
+
+
+        } finally {
+
+            loading.style.display =
+                "none";
+
+        }
+
+    }
+
+
+    document.getElementById(
+        "deviceIdValue"
+    ).textContent =
+        DEVICE_ID;
+
+
+    document.getElementById(
+        "locationValue"
+    ).textContent =
+        LOCATION;
+
+
+    document.getElementById(
+        "cropTypeValue"
+    ).textContent =
+        CROP_TYPE;
+
+
+    addLog(
+        "info",
+        "Crop Disease Detector starting..."
+    );
+
+
+    connectWebSocket();
+
+
+    window.addEventListener(
+        "beforeunload",
+        () => {
+
+            stopHeartbeat();
+
+
+            if (reconnectTimer) {
+
+                clearTimeout(
+                    reconnectTimer
+                );
+
+            }
+
+
+            if (currentVideoUrl) {
+
+                URL.revokeObjectURL(
+                    currentVideoUrl
+                );
+
+            }
+
+
+            if (socket) {
+
+                socket.close();
+
+            }
+
+        }
+    );
+
+</script>
+
+</body>
+</html>
