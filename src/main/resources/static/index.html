@@ -3,9 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crop Disease Detector</title>
+    <title>smartEyes | Giving CCTV a Brain</title>
 
     <style>
+        :root {
+            color-scheme: dark;
+            --bg: #07111f;
+            --bg-accent: #0c1c33;
+            --surface: rgba(10, 24, 45, 0.88);
+            --surface-strong: rgba(14, 33, 59, 0.96);
+            --surface-soft: rgba(255, 255, 255, 0.04);
+            --border: rgba(148, 163, 184, 0.16);
+            --text: #e5edf8;
+            --muted: #93a4bd;
+            --success: #22c55e;
+            --danger: #f87171;
+            --warning: #f59e0b;
+            --info: #38bdf8;
+            --primary: #60a5fa;
+            --primary-strong: #2563eb;
+            --shadow: 0 28px 60px rgba(2, 8, 23, 0.42);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -13,87 +32,204 @@
         }
 
         body {
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            background:
+                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 30%),
+                    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 28%),
+                    linear-gradient(180deg, #07111f 0%, #09172b 100%);
+            color: var(--text);
             min-height: 100vh;
         }
 
         .container {
-            max-width: 1500px;
+            max-width: 1480px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 28px 20px 36px;
         }
 
         .header {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+            gap: 22px;
+            margin-bottom: 22px;
         }
 
-        .header h1 {
-            font-size: 26px;
-            color: #f8fafc;
+        .hero-copy,
+        .hero-panel,
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .hero-copy {
+            padding: 32px;
+            background:
+                    linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(34, 197, 94, 0.08)),
+                    var(--surface-strong);
+        }
+
+        .hero-panel {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #8fd6ff;
+            margin-bottom: 16px;
+        }
+
+        .hero-copy h1 {
+            font-size: clamp(2.2rem, 4vw, 4.2rem);
+            letter-spacing: -0.05em;
+            margin-bottom: 12px;
+        }
+
+        .hero-copy p {
+            max-width: 680px;
+            color: var(--muted);
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .surface-pill,
+        .connection-status,
+        .confidence {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 14px;
+            color: var(--text);
+            font-size: 13px;
         }
 
         .connection-status {
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .connection-meta {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            gap: 10px;
         }
 
         .status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #ef4444;
+            background: var(--danger);
+            box-shadow: 0 0 0 6px rgba(248, 113, 113, 0.12);
         }
 
         .status-dot.connected {
-            background: #22c55e;
+            background: var(--success);
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.14);
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .hero-stat {
+            background: var(--surface-soft);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .hero-stat strong,
+        .hero-stat span:last-child {
+            color: var(--text);
+            font-size: 1rem;
+            word-break: break-word;
         }
 
         .main-grid {
             display: grid;
-            grid-template-columns: 1.5fr 1fr;
-            gap: 20px;
+            grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.95fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
         }
 
         .card {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 24px;
         }
 
-        .card h2 {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: #f8fafc;
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .section-heading h2 {
+            font-size: 1.2rem;
+            letter-spacing: -0.02em;
+            margin-top: 6px;
+        }
+
+        .section-heading p {
+            color: var(--muted);
+            font-size: 14px;
         }
 
         .video-container {
-            background: #020617;
-            border-radius: 10px;
-            min-height: 400px;
+            background:
+                    linear-gradient(180deg, rgba(14, 33, 59, 0.25), rgba(2, 6, 23, 0.75)),
+                    #020617;
+            border-radius: 22px;
+            min-height: 460px;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.14);
         }
 
         #videoStream {
             width: 100%;
             height: auto;
-            max-height: 700px;
+            max-height: 760px;
             object-fit: contain;
             display: none;
             background: #020617;
@@ -101,236 +237,278 @@
 
         .video-placeholder {
             text-align: center;
-            color: #64748b;
+            color: var(--muted);
             padding: 40px;
         }
 
         .video-placeholder .icon {
-            font-size: 50px;
-            margin-bottom: 15px;
+            font-size: 58px;
+            margin-bottom: 14px;
         }
 
-        .controls {
+        .controls,
+        .upload-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
+            gap: 12px;
+            margin-top: 18px;
             flex-wrap: wrap;
         }
 
         button {
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            background: #2563eb;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 14px;
+            padding: 11px 16px;
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.92), rgba(37, 99, 235, 0.92));
             color: white;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
         }
 
         button:hover {
-            opacity: 0.9;
+            opacity: 0.96;
+            transform: translateY(-1px);
         }
 
         button.secondary {
-            background: #475569;
+            background: rgba(71, 85, 105, 0.78);
+            box-shadow: none;
         }
 
         button.success {
-            background: #16a34a;
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.95));
+            box-shadow: 0 10px 24px rgba(34, 197, 94, 0.18);
         }
 
         button.danger {
-            background: #dc2626;
+            background: linear-gradient(180deg, rgba(248, 113, 113, 0.95), rgba(220, 38, 38, 0.95));
+            box-shadow: 0 10px 24px rgba(220, 38, 38, 0.18);
         }
 
         button.warning {
-            background: #d97706;
-        }
-
-        .sensor-data {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .sensor-item {
-            background: #0f172a;
-            border-radius: 10px;
-            padding: 18px 10px;
-            text-align: center;
-        }
-
-        .sensor-icon {
-            display: block;
-            font-size: 30px;
-            margin-bottom: 8px;
-        }
-
-        .sensor-value {
-            font-size: 25px;
-            font-weight: bold;
-            color: #f8fafc;
-            margin-bottom: 5px;
-        }
-
-        .sensor-label {
-            font-size: 12px;
-            color: #94a3b8;
-            margin-bottom: 10px;
-        }
-
-        .sensor-status {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .sensor-status.valid {
-            color: #22c55e;
-            background: rgba(34, 197, 94, 0.12);
-        }
-
-        .sensor-status.invalid {
-            color: #ef4444;
-            background: rgba(239, 68, 68, 0.12);
-        }
-
-        .sensor-status.warning {
-            color: #f59e0b;
-            background: rgba(245, 158, 11, 0.12);
-        }
-
-        .sensor-status.wet {
-            color: #38bdf8;
-            background: rgba(56, 189, 248, 0.12);
-        }
-
-        .sensor-footer {
-            margin-top: 15px;
-            display: flex;
-            justify-content: space-between;
-            color: #64748b;
-            font-size: 12px;
-        }
-
-        .detection-result {
-            background: #0f172a;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 15px;
-        }
-
-        .detection-result h3 {
-            margin-bottom: 15px;
-            color: #f8fafc;
-        }
-
-        .detection-item {
-            display: flex;
-            justify-content: space-between;
-            gap: 15px;
-            padding: 10px 0;
-            border-bottom: 1px solid #334155;
-        }
-
-        .detection-item:last-child {
-            border-bottom: none;
-        }
-
-        .confidence {
-            color: #22c55e;
-            font-weight: bold;
+            background: linear-gradient(180deg, rgba(251, 191, 36, 0.95), rgba(217, 119, 6, 0.95));
+            box-shadow: 0 10px 24px rgba(217, 119, 6, 0.18);
         }
 
         .upload-area {
-            border: 2px dashed #475569;
-            border-radius: 10px;
-            padding: 30px;
+            border: 1.5px dashed rgba(96, 165, 250, 0.42);
+            border-radius: 22px;
+            padding: 34px 28px;
             text-align: center;
             cursor: pointer;
+            background:
+                    radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 42%),
+                    rgba(10, 24, 45, 0.54);
+            transition: border-color 0.18s ease, transform 0.18s ease;
         }
 
         .upload-area:hover {
-            border-color: #2563eb;
+            border-color: rgba(96, 165, 250, 0.84);
+            transform: translateY(-1px);
+        }
+
+        .upload-icon {
+            font-size: 44px;
+            margin-bottom: 10px;
         }
 
         #fileInput {
             display: none;
         }
 
+        .detection-result {
+            background:
+                    linear-gradient(180deg, rgba(10, 24, 45, 0.96), rgba(5, 12, 24, 0.96));
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 22px;
+            padding: 22px;
+            margin-top: 10px;
+        }
+
+        .detection-hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .mini-label {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            margin-bottom: 8px;
+        }
+
+        .detection-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .confidence {
+            color: #bbf7d0;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.22);
+        }
+
+        .detection-grid,
+        .sensor-data {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .detection-item,
+        .sensor-item,
+        .hero-metric {
+            background: var(--surface-soft);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        .detection-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 96px;
+        }
+
+        .detection-item span:first-child,
+        .sensor-label {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .sensor-data {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .sensor-item {
+            text-align: left;
+        }
+
+        .sensor-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+            margin-bottom: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sensor-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f8fbff;
+            margin: 8px 0 10px;
+        }
+
+        .sensor-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .sensor-status.valid {
+            color: #bbf7d0;
+            background: rgba(34, 197, 94, 0.12);
+        }
+
+        .sensor-status.invalid {
+            color: #fecaca;
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .sensor-status.warning {
+            color: #fde68a;
+            background: rgba(245, 158, 11, 0.14);
+        }
+
+        .sensor-status.wet {
+            color: #bae6fd;
+            background: rgba(56, 189, 248, 0.14);
+        }
+
+        .sensor-footer {
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
         .logs {
-            background: #020617;
-            border-radius: 10px;
-            padding: 15px;
-            height: 250px;
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.92), rgba(10, 24, 45, 0.92));
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 14px 16px;
+            min-height: 280px;
+            max-height: 320px;
             overflow-y: auto;
-            font-family: monospace;
+            font-family: "Cascadia Code", Consolas, monospace;
             font-size: 12px;
         }
 
         .log {
-            padding: 5px 0;
-            border-bottom: 1px solid #1e293b;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.08);
             word-break: break-word;
+            line-height: 1.55;
+        }
+
+        .log:last-child {
+            border-bottom: none;
         }
 
         .log-time {
             color: #64748b;
+            margin-right: 8px;
         }
 
         .log-info {
-            color: #94a3b8;
+            color: #cbd5e1;
         }
 
         .log-success {
-            color: #22c55e;
+            color: #86efac;
         }
 
         .log-error {
-            color: #ef4444;
+            color: #fca5a5;
         }
 
         .log-sensor {
-            color: #38bdf8;
-        }
-
-        .device-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .info-item {
-            background: #0f172a;
-            padding: 12px;
-            border-radius: 8px;
-        }
-
-        .info-label {
-            color: #64748b;
-            font-size: 11px;
-            margin-bottom: 5px;
-        }
-
-        .info-value {
-            color: #f8fafc;
-            font-size: 13px;
-            word-break: break-word;
+            color: #7dd3fc;
         }
 
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
+            padding: 18px;
         }
 
         .spinner {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #334155;
-            border-top-color: #2563eb;
+            width: 34px;
+            height: 34px;
+            border: 3px solid rgba(148, 163, 184, 0.2);
+            border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: auto;
@@ -346,49 +524,77 @@
             position: fixed;
             right: 20px;
             top: 20px;
-            background: #1e293b;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            background: rgba(10, 24, 45, 0.98);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            padding: 15px 18px;
+            border-radius: 14px;
+            box-shadow: 0 16px 40px rgba(2, 8, 23, 0.42);
             display: none;
             z-index: 1000;
+            min-width: 260px;
         }
 
         .notification.success {
-            border-left: 4px solid #22c55e;
+            border-left: 4px solid var(--success);
         }
 
         .notification.error {
-            border-left: 4px solid #ef4444;
+            border-left: 4px solid var(--danger);
         }
 
         .notification.info {
-            border-left: 4px solid #38bdf8;
+            border-left: 4px solid var(--info);
         }
 
-        @media (max-width: 1000px) {
+        .subtext {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 1180px) {
+            .header,
             .main-grid {
                 grid-template-columns: 1fr;
             }
         }
 
-        @media (max-width: 650px) {
+        @media (max-width: 780px) {
+            .hero-stats,
+            .detection-grid,
             .sensor-data {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
+            }
+
+            .detection-hero,
+            .section-heading,
+            .sensor-footer {
+                flex-direction: column;
+                align-items: flex-start;
             }
         }
 
-        @media (max-width: 450px) {
-            .sensor-data {
-                grid-template-columns: 1fr;
+        @media (max-width: 520px) {
+            .container {
+                padding: 18px 14px 28px;
             }
 
-            .device-info {
-                grid-template-columns: 1fr;
+            .hero-copy,
+            .hero-panel,
+            .card {
+                padding: 18px;
+                border-radius: 18px;
             }
 
-            .header h1 {
-                font-size: 21px;
+            .video-container,
+            .upload-area,
+            .detection-result,
+            .logs {
+                border-radius: 18px;
+            }
+
+            .hero-copy h1 {
+                font-size: 2rem;
             }
         }
     </style>
@@ -399,23 +605,102 @@
 <div class="container">
 
     <div class="header">
-        <div>
-            <h1>🌱 Crop Disease Detector</h1>
+
+        <div class="hero-copy">
+            <div class="eyebrow">AI-Powered Intelligent Surveillance & Incident Prevention System</div>
+            <h1>smartEyes</h1>
+            <h2 style="font-size:1.35rem; margin-bottom:12px; color:#cfe6ff;">
+                Giving CCTV a Brain
+            </h2>
+            <p>
+                From Surveillance to Intelligence. From Detection to Prevention.
+                smartEyes transforms ordinary CCTV into an intelligent monitoring system that can
+                detect, understand, alert, and support response in real time.
+            </p>
+            <p class="subtext" style="margin-top:14px;">
+                Presented by: Olawale Toheeb Wale
+            </p>
+
+            <div class="hero-actions">
+                <button
+                        class="success"
+                        onclick="startStream()"
+                >
+                    ▶ Start Stream
+                </button>
+
+                <button
+                        class="danger"
+                        onclick="stopStream()"
+                >
+                    ■ Stop Stream
+                </button>
+
+                <button
+                        class="secondary"
+                        onclick="captureImage()"
+                >
+                    📸 Capture Snapshot
+                </button>
+
+                <button
+                        class="secondary"
+                        onclick="getStatus()"
+                >
+                    📡 Check Device
+                </button>
+            </div>
         </div>
 
-        <div class="connection-status">
-            <span class="status-dot" id="connectionDot"></span>
-            <span id="connectionText">Disconnected</span>
+        <div class="hero-panel">
+            <div class="connection-status">
+                <div class="connection-meta">
+                    <span class="status-dot" id="connectionDot"></span>
+                    <span id="connectionText">Disconnected</span>
+                </div>
+
+                <span class="surface-pill">Live edge status</span>
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <span class="stat-label">Device ID</span>
+                    <strong id="deviceIdValue">camera_01</strong>
+                </div>
+
+                <div class="hero-stat">
+                    <span class="stat-label">Location</span>
+                    <strong id="locationValue">Field_A</strong>
+                </div>
+
+                <div class="hero-stat">
+                    <span class="stat-label">Monitoring Zone</span>
+                    <strong id="cropTypeValue">Tomato</strong>
+                </div>
+
+                <div class="hero-stat">
+                    <span class="stat-label">Connection</span>
+                    <strong id="deviceConnectionValue">Offline</strong>
+                </div>
+            </div>
         </div>
+
     </div>
 
     <div class="main-grid">
 
-        <div>
+        <div class="stack">
 
             <div class="card">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Live monitoring</div>
+                        <h2>Camera feed</h2>
+                        <p>Stream real-time visuals from the connected smartEyes camera.</p>
+                    </div>
 
-                <h2>📷 Live Camera</h2>
+                    <span class="surface-pill">Camera → AI → Alert</span>
+                </div>
 
                 <div class="video-container">
 
@@ -429,49 +714,61 @@
                             id="videoPlaceholder"
                     >
                         <div class="icon">📷</div>
-                        <div>Camera stream not active</div>
+                        <div>Camera stream is waiting for a live frame.</div>
                     </div>
 
                 </div>
-
-                <div class="controls">
-
-                    <button
-                            class="success"
-                            onclick="startStream()"
-                    >
-                        ▶ Start Stream
-                    </button>
-
-                    <button
-                            class="danger"
-                            onclick="stopStream()"
-                    >
-                        ■ Stop Stream
-                    </button>
-
-                    <button
-                            class="secondary"
-                            onclick="captureImage()"
-                    >
-                        📸 Capture
-                    </button>
-
-                    <button
-                            class="secondary"
-                            onclick="getStatus()"
-                    >
-                        📡 Status
-                    </button>
-
-                </div>
-
             </div>
 
 
             <div class="card">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Manual analysis</div>
+                        <h2>Upload CCTV snapshot</h2>
+                        <p>Send a still image to the smartEyes engine for event understanding.</p>
+                    </div>
 
-                <h2>🔬 Detection Result</h2>
+                    <span class="surface-pill">JPG, JPEG, PNG</span>
+                </div>
+
+                <div
+                        class="upload-area"
+                        onclick="document.getElementById('fileInput').click()"
+                >
+                    <div class="upload-icon">🧠</div>
+                    <p>Drop in or click to choose a camera image for AI analysis.</p>
+                    <p class="subtext">smartEyes can use DJL, Gemini, or OpenAI to analyze detected objects based on the active runtime.</p>
+                </div>
+
+                <input
+                        type="file"
+                        id="fileInput"
+                        accept="image/*"
+                        onchange="processImageFile(this.files[0])"
+                >
+            </div>
+
+        </div>
+
+
+        <div class="stack">
+
+            <div class="card">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Latest analysis</div>
+                        <h2>Incident detection</h2>
+                        <p>Review the latest AI finding, confidence level, and response guidance.</p>
+                    </div>
+
+                    <span
+                            class="surface-pill"
+                            id="aiModeValue"
+                    >
+                        Awaiting AI analysis
+                    </span>
+                </div>
 
                 <div
                         class="loading"
@@ -488,14 +785,17 @@
                         class="detection-result"
                         id="detectionResult"
                 >
+                    <div class="detection-hero">
+                        <div>
+                            <div class="mini-label">Detected event</div>
+                            <div
+                                    class="detection-title"
+                                    id="diseaseValue"
+                            >
+                                --
+                            </div>
+                        </div>
 
-                    <div class="detection-item">
-                        <span>Disease</span>
-                        <strong id="diseaseValue">--</strong>
-                    </div>
-
-                    <div class="detection-item">
-                        <span>Confidence</span>
                         <span
                                 class="confidence"
                                 id="confidenceValue"
@@ -504,65 +804,46 @@
                         </span>
                     </div>
 
-                    <div class="detection-item">
-                        <span>Status</span>
-                        <strong id="detectionStatus">--</strong>
-                    </div>
+                    <div class="detection-grid">
+                        <div class="detection-item">
+                            <span>Status</span>
+                            <strong id="detectionStatus">--</strong>
+                        </div>
 
-                    <div class="detection-item">
-                        <span>Treatment</span>
-                        <span id="treatmentValue">--</span>
-                    </div>
+                        <div class="detection-item">
+                            <span>Recommended response</span>
+                            <strong id="treatmentValue">--</strong>
+                        </div>
 
+                        <div class="detection-item">
+                            <span>Available AI Analysis Modes</span>
+                            <strong id="availableAiModesValue">Awaiting detection</strong>
+                        </div>
+
+                        <div class="detection-item">
+                            <span>DJL / Provider Status</span>
+                            <strong id="djlEnginesValue">Awaiting detection</strong>
+                        </div>
+                    </div>
                 </div>
-
             </div>
 
 
             <div class="card">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Telemetry</div>
+                        <h2>Site environment</h2>
+                        <p>Track environmental signals across farms, campuses, and facilities.</p>
+                    </div>
 
-                <h2>📤 Image Detection</h2>
-
-                <div
-                        class="upload-area"
-                        onclick="document.getElementById('fileInput').click()"
-                >
-
-                    <div style="font-size:40px;">📁</div>
-
-                    <p style="margin-top:10px;">
-                        Click to upload crop image
-                    </p>
-
-                    <p
-                            style="
-                            font-size:12px;
-                            color:#64748b;
-                            margin-top:5px;
-                        "
+                    <button
+                            class="secondary"
+                            onclick="requestSensorData()"
                     >
-                        JPG, JPEG or PNG
-                    </p>
-
+                        🔄 Refresh Sensors
+                    </button>
                 </div>
-
-                <input
-                        type="file"
-                        id="fileInput"
-                        accept="image/*"
-                        onchange="processImageFile(this.files[0])"
-                >
-
-            </div>
-
-        </div>
-
-
-        <div>
-
-            <div class="card">
-
-                <h2>🌡️ Environmental Sensors</h2>
 
                 <div
                         class="sensor-data"
@@ -570,7 +851,6 @@
                 >
 
                     <div class="sensor-item">
-
                         <span class="sensor-icon">🌡️</span>
 
                         <div
@@ -580,9 +860,7 @@
                             --.-
                         </div>
 
-                        <div class="sensor-label">
-                            Temperature (°C)
-                        </div>
+                        <div class="sensor-label">Temperature (°C)</div>
 
                         <div
                                 class="sensor-status invalid"
@@ -590,12 +868,10 @@
                         >
                             No data
                         </div>
-
                     </div>
 
 
                     <div class="sensor-item">
-
                         <span class="sensor-icon">💧</span>
 
                         <div
@@ -605,9 +881,7 @@
                             --.-
                         </div>
 
-                        <div class="sensor-label">
-                            Humidity (%)
-                        </div>
+                        <div class="sensor-label">Humidity (%)</div>
 
                         <div
                                 class="sensor-status invalid"
@@ -615,12 +889,10 @@
                         >
                             No data
                         </div>
-
                     </div>
 
 
                     <div class="sensor-item">
-
                         <span class="sensor-icon">🌱</span>
 
                         <div
@@ -630,9 +902,7 @@
                             --.-
                         </div>
 
-                        <div class="sensor-label">
-                            Soil Moisture (%)
-                        </div>
+                        <div class="sensor-label">Soil Moisture (%)</div>
 
                         <div
                                 class="sensor-status invalid"
@@ -640,122 +910,32 @@
                         >
                             No data
                         </div>
-
                     </div>
 
                 </div>
-
 
                 <div class="sensor-footer">
-
-                    <span id="sensorStatus">
-                        Sensor offline
-                    </span>
-
-                    <span id="sensorUpdateTime">
-                        Never updated
-                    </span>
-
+                    <span id="sensorStatus">Sensor offline</span>
+                    <span id="sensorUpdateTime">Never updated</span>
                 </div>
-
-
-                <div class="controls">
-
-                    <button
-                            class="secondary"
-                            onclick="requestSensorData()"
-                    >
-                        🔄 Refresh Sensors
-                    </button>
-
-                </div>
-
             </div>
 
 
             <div class="card">
-
-                <h2>📱 Device Information</h2>
-
-                <div class="device-info">
-
-                    <div class="info-item">
-
-                        <div class="info-label">
-                            Device ID
-                        </div>
-
-                        <div
-                                class="info-value"
-                                id="deviceIdValue"
-                        >
-                            camera_01
-                        </div>
-
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Operations feed</div>
+                        <h2>Security timeline</h2>
+                        <p>Review live telemetry, connection events, and AI activity.</p>
                     </div>
 
-
-                    <div class="info-item">
-
-                        <div class="info-label">
-                            Location
-                        </div>
-
-                        <div
-                                class="info-value"
-                                id="locationValue"
-                        >
-                            Field_A
-                        </div>
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <div class="info-label">
-                            Crop Type
-                        </div>
-
-                        <div
-                                class="info-value"
-                                id="cropTypeValue"
-                        >
-                            Tomato
-                        </div>
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <div class="info-label">
-                            Connection
-                        </div>
-
-                        <div
-                                class="info-value"
-                                id="deviceConnectionValue"
-                        >
-                            Offline
-                        </div>
-
-                    </div>
-
+                    <span class="surface-pill">Live logs</span>
                 </div>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>📋 System Logs</h2>
 
                 <div
                         class="logs"
                         id="logs"
                 ></div>
-
             </div>
 
         </div>
@@ -1971,12 +2151,39 @@
                         : []
                 );
 
+        const hasGeminiMode =
+            availableAiModes.includes("Gemini");
+
+        const hasOpenAiMode =
+            availableAiModes.includes("OpenAI");
+
+        const effectiveAiMode =
+            json.aiMode &&
+            json.aiMode !== "Unavailable"
+                ? json.aiMode
+                : (
+                    djlEngines.length > 0
+                        ? "DJL local runtime"
+                        : (
+                            hasGeminiMode && hasOpenAiMode
+                                ? "Gemini / OpenAI object analysis"
+                                : (
+                                    hasGeminiMode
+                                        ? "Gemini object analysis"
+                                        : (
+                                            hasOpenAiMode
+                                                ? "OpenAI object analysis"
+                                                : "AI pipeline available"
+                                        )
+                                )
+                        )
+                );
 
         const aiLogParts = [];
 
         if (json.aiMode) {
             aiLogParts.push(
-                "AI mode: " + json.aiMode
+                "AI mode: " + effectiveAiMode
             );
         }
 
@@ -2017,6 +2224,29 @@
             "treatmentValue"
         ).textContent =
             treatment;
+
+        document.getElementById(
+            "aiModeValue"
+        ).textContent =
+            effectiveAiMode;
+
+        document.getElementById(
+            "availableAiModesValue"
+        ).textContent =
+            availableAiModes.length > 0
+                ? availableAiModes.join(", ")
+                : "No AI components reported";
+
+        document.getElementById(
+            "djlEnginesValue"
+        ).textContent =
+            djlEngines.length > 0
+                ? djlEngines.join(", ")
+                : (
+                    hasGeminiMode || hasOpenAiMode
+                )
+                    ? "No local DJL engine initialized; provider-based analysis available"
+                    : "No DJL engine initialized";
 
         if (aiLogParts.length > 0) {
 
@@ -2466,7 +2696,7 @@
 
     addLog(
         "info",
-        "Crop Disease Detector starting..."
+        "smartEyes control center starting..."
     );
 
 
