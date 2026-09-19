@@ -784,6 +784,9 @@
     let fpsTimer = null;
     let lastFrameBytes = 0;
 
+    const DETECTION_INTERVAL_MS = 10_000; // capture every 10 seconds
+    let detectionTimer = null;
+
     const MAX_LOG_LINES = 400;
     const logBuffer = [];
 
@@ -997,6 +1000,7 @@
             videoPlaceholder.style.display = "none";
             videoHud.style.display = "flex";
             streamActive = true;
+            startPeriodicDetection();
         };
         videoStream.onerror = () => {
             addLog("error", "Failed to display camera frame");
@@ -1405,6 +1409,7 @@
         if (!isSocketOpen()) return;
         socket.send(JSON.stringify({ type: "stop_stream", device_id: DEVICE_ID }));
         streamActive = false;
+        stopPeriodicDetection();
         videoStream.style.display = "none";
         videoHud.style.display = "none";
         overlayCanvas.style.display = "none";
@@ -1416,6 +1421,41 @@
         if (!isSocketOpen()) { showToast("WebSocket not connected", "error"); return; }
         socket.send(JSON.stringify({ type: "capture", device_id: DEVICE_ID }));
         addLog("info", "Capture command sent");
+    }
+
+    // Periodic capture/detection helpers
+    async function captureCurrentFrameAsBlob() {
+        if (!videoStream || !videoStream.naturalWidth) return null;
+        const tmp = document.createElement("canvas");
+        tmp.width = videoStream.naturalWidth;
+        tmp.height = videoStream.naturalHeight;
+        const ctx = tmp.getContext("2d");
+        try {
+            ctx.drawImage(videoStream, 0, 0, tmp.width, tmp.height);
+        } catch (e) {
+            addLog("error", "Failed to draw video frame: " + (e && e.message ? e.message : e));
+            return null;
+        }
+        return new Promise(resolve => tmp.toBlob(blob => resolve(blob), 'image/jpeg', 0.85));
+    }
+
+    function startPeriodicDetection() {
+        stopPeriodicDetection();
+        if (!streamActive) return;
+        detectionTimer = setInterval(async () => {
+            if (!streamActive) return;
+            const blob = await captureCurrentFrameAsBlob();
+            if (blob && blob.size > 0) {
+                const file = new File([blob], 'stream_capture.jpg', { type: blob.type || 'image/jpeg' });
+                sendImageForDetection(file);
+                addLog("info", "Periodic capture sent for detection");
+            }
+        }, DETECTION_INTERVAL_MS);
+    }
+
+    function stopPeriodicDetection() {
+        if (detectionTimer) clearInterval(detectionTimer);
+        detectionTimer = null;
     }
 
     function getStatus() {

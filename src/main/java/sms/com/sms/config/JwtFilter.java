@@ -32,7 +32,6 @@ public class JwtFilter extends OncePerRequestFilter {
         this.jwtUtil = jwtUtil;
     }
 
-    // ✅ ADD THIS METHOD - Skip JWT validation for WebSocket and public paths
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
@@ -96,9 +95,9 @@ public class JwtFilter extends OncePerRequestFilter {
                         userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-                System.out.println("✅ JWT Token Authenticated for: " + phoneNumber);
+                System.out.println(" JWT Token Authenticated for: " + phoneNumber);
             } else {
-                System.out.println("❌ JWT Token is invalid.");
+                System.out.println("JWT Token is invalid.");
             }
         }
 

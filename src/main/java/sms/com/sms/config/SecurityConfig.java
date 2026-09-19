@@ -120,7 +120,7 @@ public class SecurityConfig {
                 "http://localhost:*",
                 "http://127.0.0.1:*",
                 "http://192.168.*:*",
-                "https://crop-disease-detector-8nqt.onrender.com:*k",
+                "https://smarteye-lme3.onrender.com:*",
 
                 "/user/sendOtp/**",
                 "/user/verifyOtpAndCreateUser/**",
