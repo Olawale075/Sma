@@ -1,5 +1,6 @@
 package sms.com.sms;
 
+import ai.djl.engine.Engine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -54,6 +55,14 @@ public class ObjectDetectionService {
 
     /** Max output tokens for the AI response. */
     private static final int MAX_OUTPUT_TOKENS = 2048;
+
+    public List<Boolean> getDjlEngines() {
+        // Make sure Engine.getAllEngines() really returns List<Engine>
+        return Engine.getAllEngines()
+                .stream()
+                .map(engine -> engine.regionMatches(0, "DLJ", 0, 3)) // explicit lambda avoids confusion
+                .collect(Collectors.toList());
+    }
 
     /**
      * Domain categories the AI can classify into.

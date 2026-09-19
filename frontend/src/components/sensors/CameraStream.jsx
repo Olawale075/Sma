@@ -19,11 +19,9 @@ const CameraStream = forwardRef(function CameraStream(
 
   // SERVER CONFIGURATION
 
-  const SERVER_HOST = "crop-disease-detector-8nqt.onrender.com";
+  const WS_URL = "wss://smarteye-lme3.onrender.com/camera-stream";
+  const SERVER_HOST = "smarteye-lme3.onrender.com";
   const SERVER_PORT = "443";
-
-  const WS_URL =
-    `wss://${SERVER_HOST}:${SERVER_PORT}/camera-stream`;
 
   
   // CONNECT
