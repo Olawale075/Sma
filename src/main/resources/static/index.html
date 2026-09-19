@@ -1,654 +1,526 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>smartEyes | Giving CCTV a Brain</title>
 
     <style>
         :root {
             color-scheme: dark;
-            --bg: #07111f;
-            --bg-accent: #0c1c33;
-            --surface: rgba(10, 24, 45, 0.88);
+            --bg-0: #050d1a;
+            --bg-1: #0a1a30;
+            --surface: rgba(12, 26, 48, 0.82);
             --surface-strong: rgba(14, 33, 59, 0.96);
-            --surface-soft: rgba(255, 255, 255, 0.04);
-            --border: rgba(148, 163, 184, 0.16);
-            --text: #e5edf8;
-            --muted: #93a4bd;
-            --success: #22c55e;
-            --danger: #f87171;
-            --warning: #f59e0b;
-            --info: #38bdf8;
+            --surface-soft: rgba(255, 255, 255, 0.045);
+            --border: rgba(148, 163, 184, 0.14);
+            --border-strong: rgba(148, 163, 184, 0.24);
+            --text: #e6eefb;
+            --muted: #8fa2bd;
             --primary: #60a5fa;
             --primary-strong: #2563eb;
-            --shadow: 0 28px 60px rgba(2, 8, 23, 0.42);
+            --success: #34d399;
+            --danger: #f87171;
+            --warning: #fbbf24;
+            --info: #38bdf8;
+            --purple: #a78bfa;
+            --shadow-lg: 0 20px 50px rgba(2, 8, 23, 0.5);   /* ← reduced */
+            --shadow-md: 0 10px 26px rgba(2, 8, 23, 0.36);  /* ← reduced */
+            --radius: 14px;                                  /* ← reduced */
+            --radius-sm: 10px;                               /* ← reduced */
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
 
         body {
-            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            font-family: Inter, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
             background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 30%),
-                    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 28%),
-                    linear-gradient(180deg, #07111f 0%, #09172b 100%);
+                    radial-gradient(1200px 600px at 8% -10%, rgba(56, 189, 248, 0.14), transparent 60%),
+                    radial-gradient(900px 500px at 100% 0%, rgba(96, 165, 250, 0.12), transparent 55%),
+                    radial-gradient(700px 500px at 50% 120%, rgba(167, 139, 250, 0.10), transparent 60%),
+                    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
             color: var(--text);
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.4;              /* ← reduced from 1.5 */
+            font-size: 13px;               /* ← base font shrunk */
         }
 
-        .container {
-            max-width: 1480px;
-            margin: 0 auto;
-            padding: 28px 20px 36px;
+        /* ---------- top bar ---------- */
+        .topbar {
+            position: sticky; top: 0; z-index: 50;
+            backdrop-filter: blur(14px);
+            background: rgba(6, 15, 29, 0.72);
+            border-bottom: 1px solid var(--border);
         }
+        .topbar-inner {
+            max-width: 1480px; margin: 0 auto;
+            padding: 8px 16px;             /* ← reduced from 12px 22px */
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
+        }
+        .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: -0.01em; }
+        .brand-mark {
+            width: 28px; height: 28px;     /* ← reduced from 34 */
+            display: grid; place-items: center;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #3b82f6, #22d3ee);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+            font-size: 15px;               /* ← reduced from 18 */
+        }
+        .brand-sub { color: var(--muted); font-size: 11px; font-weight: 500; }
+        .topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+        /* ---------- layout ---------- */
+        .container { max-width: 1480px; margin: 0 auto; padding: 16px 16px 26px; } /* ← reduced */
 
         .header {
             display: grid;
-            grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
-            gap: 22px;
-            margin-bottom: 22px;
+            grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+            gap: 14px;                     /* ← reduced from 22 */
+            margin-bottom: 14px;           /* ← reduced from 22 */
         }
-
-        .hero-copy,
-        .hero-panel,
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(18px);
-        }
-
-        .hero-copy {
-            padding: 32px;
-            background:
-                    linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(34, 197, 94, 0.08)),
-                    var(--surface-strong);
-        }
-
-        .hero-panel {
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #8fd6ff;
-            margin-bottom: 16px;
-        }
-
-        .hero-copy h1 {
-            font-size: clamp(2.2rem, 4vw, 4.2rem);
-            letter-spacing: -0.05em;
-            margin-bottom: 12px;
-        }
-
-        .hero-copy p {
-            max-width: 680px;
-            color: var(--muted);
-            line-height: 1.7;
-            font-size: 15px;
-        }
-
-        .hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 24px;
-        }
-
-        .surface-pill,
-        .connection-status,
-        .confidence {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px 14px;
-            color: var(--text);
-            font-size: 13px;
-        }
-
-        .connection-status {
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        .connection-meta {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--danger);
-            box-shadow: 0 0 0 6px rgba(248, 113, 113, 0.12);
-        }
-
-        .status-dot.connected {
-            background: var(--success);
-            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.14);
-        }
-
-        .hero-stats {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .hero-stat {
-            background: var(--surface-soft);
-            border: 1px solid rgba(148, 163, 184, 0.12);
-            border-radius: 18px;
-            padding: 16px;
-        }
-
-        .stat-label {
-            display: block;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--muted);
-            margin-bottom: 8px;
-        }
-
-        .hero-stat strong,
-        .hero-stat span:last-child {
-            color: var(--text);
-            font-size: 1rem;
-            word-break: break-word;
-        }
-
         .main-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.95fr);
-            gap: 22px;
+            grid-template-columns: minmax(0, 1.4fr) minmax(340px, 1fr);
+            gap: 14px;                     /* ← reduced */
             align-items: start;
         }
+        .stack { display: flex; flex-direction: column; gap: 14px; } /* ← reduced from 22 */
 
-        .stack {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
+        /* ---------- cards ---------- */
+        .card, .hero-copy, .hero-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(18px);
         }
-
-        .card {
-            padding: 24px;
-        }
-
-        .section-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            margin-bottom: 18px;
-        }
-
-        .section-heading h2 {
-            font-size: 1.2rem;
-            letter-spacing: -0.02em;
-            margin-top: 6px;
-        }
-
-        .section-heading p {
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .video-container {
+        .hero-copy {
+            padding: 18px;                 /* ← reduced from 30 */
             background:
-                    linear-gradient(180deg, rgba(14, 33, 59, 0.25), rgba(2, 6, 23, 0.75)),
-                    #020617;
-            border-radius: 22px;
-            min-height: 460px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            border: 1px solid rgba(148, 163, 184, 0.14);
+                    linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(34, 211, 238, 0.08)),
+                    var(--surface-strong);
+        }
+        .hero-panel { padding: 14px; display: flex; flex-direction: column; gap: 11px; } /* ← reduced */
+        .card { padding: 14px; }           /* ← reduced from 22 */
+
+        /* ---------- hero copy ---------- */
+        .eyebrow {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 10px;               /* ← reduced from 11 */
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #8fd6ff;
+            margin-bottom: 9px;            /* ← reduced */
+            font-weight: 600;
+        }
+        .hero-copy h1 {
+            font-size: clamp(1.6rem, 2.8vw, 2.6rem);  /* ← reduced */
+            letter-spacing: -0.045em;
+            line-height: 1.05;
+            margin-bottom: 7px;
+        }
+        .hero-copy h2 { font-size: 1.05rem; color: #cfe6ff; margin-bottom: 8px; font-weight: 600; }
+        .hero-copy p { max-width: 680px; color: var(--muted); line-height: 1.5; font-size: 13px; }
+
+        .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+        /* ---------- pills ---------- */
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.045);
+            padding: 5px 10px;             /* ← reduced from 8px 13px */
+            color: var(--text);
+            font-size: 11.5px;             /* ← reduced */
+            font-weight: 600;
+        }
+        .pill.muted { color: var(--muted); font-weight: 500; }
+
+        /* ---------- connection status ---------- */
+        .connection-status {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px;
+            padding: 9px 11px;             /* ← reduced */
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid var(--border);
+        }
+        .connection-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+
+        .status-dot {
+            width: 8px; height: 8px;       /* ← reduced from 10 */
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 0 5px rgba(248, 113, 113, 0.14);
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.18);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.18); }
+            50%      { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0.05); }
         }
 
+        /* ---------- hero stats ---------- */
+        .hero-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .hero-stat {
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px;                 /* ← reduced from 14 */
+            transition: border-color 0.18s ease, transform 0.18s ease;
+        }
+        .hero-stat:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+        .stat-label {
+            display: block;
+            font-size: 10px;               /* ← reduced from 11 */
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .hero-stat strong { font-size: 0.88rem; word-break: break-word; }
+
+        /* ---------- section heading ---------- */
+        .section-heading {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 11px;           /* ← reduced from 16 */
+            flex-wrap: wrap;
+        }
+        .section-heading h2 { font-size: 1.02rem; letter-spacing: -0.01em; margin-top: 4px; }
+        .section-heading p { color: var(--muted); font-size: 12.5px; margin-top: 3px; max-width: 60ch; }
+
+        /* ---------- buttons ---------- */
+        button {
+            font-family: inherit;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: var(--radius-sm);
+            padding: 7px 12px;             /* ← reduced from 10px 15px */
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95));
+            color: white;
+            cursor: pointer;
+            font-size: 12.5px;             /* ← reduced from 13.5 */
+            font-weight: 600;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.22);
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        button:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.97; }
+        button:active:not(:disabled) { transform: translateY(0); }
+        button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        button.secondary { background: rgba(71, 85, 105, 0.78); box-shadow: none; }
+        button.success   { background: linear-gradient(180deg, rgba(52, 211, 153, 0.95), rgba(16, 185, 129, 0.95)); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.22); }
+        button.danger    { background: linear-gradient(180deg, rgba(248, 113, 113, 0.95), rgba(220, 38, 38, 0.95)); box-shadow: 0 6px 16px rgba(220, 38, 38, 0.22); }
+        button.warning   { background: linear-gradient(180deg, rgba(251, 191, 36, 0.95), rgba(217, 119, 6, 0.95)); box-shadow: 0 6px 16px rgba(217, 119, 6, 0.22); }
+        button.ghost     { background: rgba(255, 255, 255, 0.05); box-shadow: none; border-color: var(--border); }
+        button.sm { padding: 5px 9px; font-size: 11.5px; }  /* ← reduced */
+
+        /* ---------- video ---------- */
+        .video-container {
+            position: relative;
+            background: linear-gradient(180deg, rgba(14, 33, 59, 0.3), rgba(2, 6, 23, 0.85)), #020617;
+            border-radius: 14px;           /* ← reduced from 18 */
+            min-height: 300px;             /* ← reduced from 420 */
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
         #videoStream {
-            width: 100%;
-            height: auto;
-            max-height: 760px;
+            width: 100%; height: auto;
+            max-height: 560px;             /* ← reduced from 760 */
             object-fit: contain;
             display: none;
             background: #020617;
         }
+        #overlayCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+        .video-placeholder { text-align: center; color: var(--muted); padding: 26px 18px; }
+        .video-placeholder .icon { font-size: 40px; margin-bottom: 8px; }  /* ← reduced */
+        .video-placeholder .hint { font-size: 12px; opacity: 0.75; margin-top: 4px; }
 
-        .video-placeholder {
-            text-align: center;
-            color: var(--muted);
-            padding: 40px;
-        }
-
-        .video-placeholder .icon {
-            font-size: 58px;
-            margin-bottom: 14px;
-        }
-
-        .controls,
-        .upload-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 18px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            border: 1px solid rgba(148, 163, 184, 0.12);
-            border-radius: 14px;
-            padding: 11px 16px;
-            background: linear-gradient(180deg, rgba(59, 130, 246, 0.92), rgba(37, 99, 235, 0.92));
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
+        .video-hud { position: absolute; top: 9px; left: 9px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+        .hud-chip {
+            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 8px;              /* ← reduced */
+            font-size: 10.5px;             /* ← reduced */
             font-weight: 600;
-            transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
+            color: #d5e6ff;
+            backdrop-filter: blur(8px);
+        }
+        .hud-chip.live::before {
+            content: ""; display: inline-block;
+            width: 6px; height: 6px;
+            margin-right: 5px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 1.6s infinite;
+            vertical-align: middle;
         }
 
-        button:hover {
-            opacity: 0.96;
-            transform: translateY(-1px);
-        }
-
-        button.secondary {
-            background: rgba(71, 85, 105, 0.78);
-            box-shadow: none;
-        }
-
-        button.success {
-            background: linear-gradient(180deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.95));
-            box-shadow: 0 10px 24px rgba(34, 197, 94, 0.18);
-        }
-
-        button.danger {
-            background: linear-gradient(180deg, rgba(248, 113, 113, 0.95), rgba(220, 38, 38, 0.95));
-            box-shadow: 0 10px 24px rgba(220, 38, 38, 0.18);
-        }
-
-        button.warning {
-            background: linear-gradient(180deg, rgba(251, 191, 36, 0.95), rgba(217, 119, 6, 0.95));
-            box-shadow: 0 10px 24px rgba(217, 119, 6, 0.18);
-        }
-
+        /* ---------- upload area ---------- */
         .upload-area {
             border: 1.5px dashed rgba(96, 165, 250, 0.42);
-            border-radius: 22px;
-            padding: 34px 28px;
+            border-radius: 14px;
+            padding: 20px 18px;            /* ← reduced from 32px 26px */
             text-align: center;
             cursor: pointer;
             background:
                     radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 42%),
                     rgba(10, 24, 45, 0.54);
-            transition: border-color 0.18s ease, transform 0.18s ease;
+            transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
         }
-
-        .upload-area:hover {
-            border-color: rgba(96, 165, 250, 0.84);
+        .upload-area:hover, .upload-area.drag {
+            border-color: rgba(96, 165, 250, 0.9);
             transform: translateY(-1px);
-        }
-
-        .upload-icon {
-            font-size: 44px;
-            margin-bottom: 10px;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        .detection-result {
             background:
-                    linear-gradient(180deg, rgba(10, 24, 45, 0.96), rgba(5, 12, 24, 0.96));
-            border: 1px solid rgba(148, 163, 184, 0.12);
-            border-radius: 22px;
-            padding: 22px;
-            margin-top: 10px;
+                    radial-gradient(circle at top, rgba(59, 130, 246, 0.15), transparent 42%),
+                    rgba(10, 24, 45, 0.7);
         }
+        .upload-icon { font-size: 32px; margin-bottom: 6px; }  /* ← reduced */
+        #fileInput { display: none; }
 
+        /* ---------- detection result ---------- */
+        .detection-result {
+            background: linear-gradient(180deg, rgba(10, 24, 45, 0.96), rgba(5, 12, 24, 0.96));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;                 /* ← reduced from 20 */
+            margin-top: 8px;
+        }
         .detection-hero {
-            display: flex;
-            justify-content: space-between;
-            gap: 14px;
-            align-items: center;
-            margin-bottom: 18px;
+            display: flex; justify-content: space-between; gap: 11px; align-items: flex-start;
+            margin-bottom: 11px;
+            flex-wrap: wrap;
         }
-
         .mini-label {
             color: var(--muted);
-            font-size: 12px;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.14em;
-            margin-bottom: 8px;
+            letter-spacing: 0.12em;
+            margin-bottom: 4px;
+            font-weight: 600;
         }
-
-        .detection-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            line-height: 1.25;
-        }
+        .detection-title { font-size: 1.15rem; font-weight: 700; line-height: 1.25; word-break: break-word; } /* ← reduced */
+        .detection-subtitle { color: var(--muted); font-size: 12px; margin-top: 3px; }
 
         .confidence {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
             color: #bbf7d0;
             font-weight: 700;
-            white-space: nowrap;
-            background: rgba(34, 197, 94, 0.12);
-            border-color: rgba(34, 197, 94, 0.22);
-        }
-
-        .detection-grid,
-        .sensor-data {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .detection-item,
-        .sensor-item,
-        .hero-metric {
-            background: var(--surface-soft);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 18px;
-            padding: 16px;
-        }
-
-        .detection-item {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-height: 96px;
-        }
-
-        .detection-item span:first-child,
-        .sensor-label {
-            color: var(--muted);
+            background: rgba(52, 211, 153, 0.12);
+            border: 1px solid rgba(52, 211, 153, 0.24);
             font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
         }
 
-        .sensor-data {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
+        .confidence-bar { width: 100%; height: 5px; background: rgba(148, 163, 184, 0.18); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+        .confidence-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #38bdf8); transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 
+        .detection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .detection-item {
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;                 /* ← reduced from 14 */
+            display: flex; flex-direction: column; gap: 4px;
+            min-height: 68px;              /* ← reduced from 90 */
+        }
+        .detection-item span:first-child { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+        .detection-item strong { font-size: 12.5px; word-break: break-word; }
+
+        .domain-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(96, 165, 250, 0.12);
+            border: 1px solid rgba(96, 165, 250, 0.28);
+            color: #cfe6ff;
+            font-size: 10.5px;
+            font-weight: 600;
+        }
+        .chip.success { background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.28); color: #bbf7d0; }
+        .chip.warning { background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); color: #fde68a; }
+        .chip.danger  { background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.3); color: #fecaca; }
+        .chip.purple  { background: rgba(167, 139, 250, 0.12); border-color: rgba(167, 139, 250, 0.3); color: #ddd6fe; }
+
+        .result-list { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+        .result-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+        }
+        .result-item .label { font-weight: 600; font-size: 12.5px; }
+        .result-item .sub { color: var(--muted); font-size: 10.5px; }
+        .result-item .score { font-weight: 700; font-size: 12px; color: #bbf7d0; white-space: nowrap; }
+
+        /* ---------- sensors ---------- */
+        .sensor-data { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
         .sensor-item {
-            text-align: left;
-        }
-
-        .sensor-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            font-size: 20px;
-            margin-bottom: 14px;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
             border-radius: 12px;
+            padding: 11px;                 /* ← reduced from 15 */
+        }
+        .sensor-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px;     /* ← reduced from 40 */
+            font-size: 15px;
+            margin-bottom: 8px;
+            border-radius: 9px;
             background: rgba(255, 255, 255, 0.05);
         }
-
-        .sensor-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #f8fbff;
-            margin: 8px 0 10px;
-        }
-
+        .sensor-value { font-size: 1.35rem; font-weight: 700; color: #f8fbff; margin: 4px 0 6px; } /* ← reduced */
+        .sensor-label { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
         .sensor-status {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 10px;
+            display: inline-flex; align-items: center;
+            padding: 3px 7px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
+            margin-top: 6px;
         }
+        .sensor-status.valid   { color: #bbf7d0; background: rgba(52, 211, 153, 0.12); }
+        .sensor-status.invalid { color: #fecaca; background: rgba(239, 68, 68, 0.12); }
+        .sensor-status.warning { color: #fde68a; background: rgba(245, 158, 11, 0.14); }
+        .sensor-status.wet     { color: #bae6fd; background: rgba(56, 189, 248, 0.14); }
 
-        .sensor-status.valid {
-            color: #bbf7d0;
-            background: rgba(34, 197, 94, 0.12);
-        }
+        .sensor-footer { margin-top: 10px; display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; flex-wrap: wrap; }
 
-        .sensor-status.invalid {
-            color: #fecaca;
-            background: rgba(239, 68, 68, 0.12);
-        }
-
-        .sensor-status.warning {
-            color: #fde68a;
-            background: rgba(245, 158, 11, 0.14);
-        }
-
-        .sensor-status.wet {
-            color: #bae6fd;
-            background: rgba(56, 189, 248, 0.14);
-        }
-
-        .sensor-footer {
-            margin-top: 16px;
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
+        /* ---------- logs ---------- */
+        .logs-toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
         .logs {
             background: linear-gradient(180deg, rgba(2, 6, 23, 0.92), rgba(10, 24, 45, 0.92));
-            border-radius: 20px;
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            padding: 14px 16px;
-            min-height: 280px;
-            max-height: 320px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 9px 11px;
+            min-height: 170px;             /* ← reduced from 260 */
+            max-height: 240px;             /* ← reduced from 340 */
             overflow-y: auto;
-            font-family: "Cascadia Code", Consolas, monospace;
-            font-size: 12px;
+            font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+            font-size: 11px;
         }
+        .logs::-webkit-scrollbar { width: 7px; }
+        .logs::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.22); border-radius: 8px; }
+        .log { padding: 5px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.07); word-break: break-word; line-height: 1.45; }
+        .log:last-child { border-bottom: none; }
+        .log-time { color: #64748b; margin-right: 6px; }
+        .log-info    { color: #cbd5e1; }
+        .log-success { color: #86efac; }
+        .log-error   { color: #fca5a5; }
+        .log-sensor  { color: #7dd3fc; }
+        .log-ai      { color: #ddd6fe; }
 
-        .log {
-            padding: 9px 0;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-            word-break: break-word;
-            line-height: 1.55;
-        }
-
-        .log:last-child {
-            border-bottom: none;
-        }
-
-        .log-time {
-            color: #64748b;
-            margin-right: 8px;
-        }
-
-        .log-info {
-            color: #cbd5e1;
-        }
-
-        .log-success {
-            color: #86efac;
-        }
-
-        .log-error {
-            color: #fca5a5;
-        }
-
-        .log-sensor {
-            color: #7dd3fc;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 18px;
-        }
-
+        /* ---------- loading ---------- */
+        .loading { display: none; text-align: center; padding: 14px; }
         .spinner {
-            width: 34px;
-            height: 34px;
+            width: 26px; height: 26px;
             border: 3px solid rgba(148, 163, 184, 0.2);
             border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: auto;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .notification {
-            position: fixed;
-            right: 20px;
-            top: 20px;
+        /* ---------- toasts ---------- */
+        .toast-stack { position: fixed; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; max-width: 300px; }
+        .toast {
             background: rgba(10, 24, 45, 0.98);
-            border: 1px solid rgba(148, 163, 184, 0.14);
-            padding: 15px 18px;
-            border-radius: 14px;
-            box-shadow: 0 16px 40px rgba(2, 8, 23, 0.42);
-            display: none;
-            z-index: 1000;
-            min-width: 260px;
-        }
-
-        .notification.success {
-            border-left: 4px solid var(--success);
-        }
-
-        .notification.error {
-            border-left: 4px solid var(--danger);
-        }
-
-        .notification.info {
+            border: 1px solid var(--border);
             border-left: 4px solid var(--info);
+            padding: 9px 13px;
+            border-radius: 10px;
+            box-shadow: var(--shadow-md);
+            color: var(--text);
+            font-size: 12.5px;
+            animation: slideIn 0.25s ease;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error   { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        @keyframes slideIn {
+            from { transform: translateX(40px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
         }
 
-        .subtext {
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.6;
-        }
+        /* ---------- subtext ---------- */
+        .subtext { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
+        /* ---------- responsive ---------- */
         @media (max-width: 1180px) {
-            .header,
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
+            .header, .main-grid { grid-template-columns: 1fr; }
         }
-
         @media (max-width: 780px) {
-            .hero-stats,
-            .detection-grid,
-            .sensor-data {
-                grid-template-columns: 1fr;
-            }
-
-            .detection-hero,
-            .section-heading,
-            .sensor-footer {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+            .hero-stats, .detection-grid, .sensor-data { grid-template-columns: 1fr; }
+            .detection-hero, .section-heading, .sensor-footer { flex-direction: column; align-items: flex-start; }
+            .topbar-inner { flex-wrap: wrap; }
         }
-
         @media (max-width: 520px) {
-            .container {
-                padding: 18px 14px 28px;
-            }
-
-            .hero-copy,
-            .hero-panel,
-            .card {
-                padding: 18px;
-                border-radius: 18px;
-            }
-
-            .video-container,
-            .upload-area,
-            .detection-result,
-            .logs {
-                border-radius: 18px;
-            }
-
-            .hero-copy h1 {
-                font-size: 2rem;
-            }
+            .container { padding: 12px 10px 24px; }
+            .hero-copy, .hero-panel, .card { padding: 12px; border-radius: 12px; }
+            .hero-copy h1 { font-size: 1.5rem; }
+            .video-container { min-height: 220px; }
         }
     </style>
 </head>
 
 <body>
 
+<!-- ---------- top bar ---------- -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-mark">👁️</div>
+            <div>
+                <div>smartEyes</div>
+                <div class="brand-sub">Universal AI monitoring</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <span class="pill muted" id="headerDevicePill">camera_01</span>
+            <span class="pill muted" id="headerFocusPill">Focus: General</span>
+            <span class="pill" id="headerConnectionPill">
+                <span class="status-dot" id="headerDot"></span>
+                <span id="headerConnectionText">Disconnected</span>
+            </span>
+        </div>
+    </div>
+</header>
+
 <div class="container">
 
+    <!-- ---------- hero ---------- -->
     <div class="header">
-
         <div class="hero-copy">
-            <div class="eyebrow">AI-Powered Intelligent Surveillance & Incident Prevention System</div>
+            <div class="eyebrow">AI-Powered Intelligent Surveillance &amp; Incident Prevention</div>
             <h1>smartEyes</h1>
-            <h2 style="font-size:1.35rem; margin-bottom:12px; color:#cfe6ff;">
-                Giving CCTV a Brain
-            </h2>
-            <p>
-                From Surveillance to Intelligence. From Detection to Prevention.
-                smartEyes transforms ordinary CCTV into an intelligent monitoring system that can
-                detect, understand, alert, and support response in real time.
-            </p>
-            <p class="subtext" style="margin-top:14px;">
-                Presented by: Olawale Toheeb Wale
+
+            <p class="subtext" style="margin-top:12px;">
+                Presented by <strong>Olawale Toheeb Wale</strong>
             </p>
 
             <div class="hero-actions">
-                <button
-                        class="success"
-                        onclick="startStream()"
-                >
-                    ▶ Start Stream
-                </button>
-
-                <button
-                        class="danger"
-                        onclick="stopStream()"
-                >
-                    ■ Stop Stream
-                </button>
-
-                <button
-                        class="secondary"
-                        onclick="captureImage()"
-                >
-                    📸 Capture Snapshot
-                </button>
-
-                <button
-                        class="secondary"
-                        onclick="getStatus()"
-                >
-                    📡 Check Device
-                </button>
+                <button class="success" onclick="startStream()">▶ Start Stream</button>
+                <button class="danger" onclick="stopStream()">■ Stop Stream</button>
+                <button class="secondary" onclick="captureImage()">📸 Capture Snapshot</button>
+                <button class="secondary" onclick="getStatus()">📡 Check Device</button>
             </div>
         </div>
 
@@ -658,8 +530,7 @@
                     <span class="status-dot" id="connectionDot"></span>
                     <span id="connectionText">Disconnected</span>
                 </div>
-
-                <span class="surface-pill">Live edge status</span>
+                <span class="pill muted">Live edge status</span>
             </div>
 
             <div class="hero-stats">
@@ -667,28 +538,46 @@
                     <span class="stat-label">Device ID</span>
                     <strong id="deviceIdValue">camera_01</strong>
                 </div>
-
                 <div class="hero-stat">
                     <span class="stat-label">Location</span>
                     <strong id="locationValue">Field_A</strong>
                 </div>
-
                 <div class="hero-stat">
-                    <span class="stat-label">Monitoring Zone</span>
-                    <strong id="cropTypeValue">Tomato</strong>
+                    <span class="stat-label">AI Focus</span>
+                    <strong id="cropTypeValue">General</strong>
                 </div>
-
                 <div class="hero-stat">
                     <span class="stat-label">Connection</span>
                     <strong id="deviceConnectionValue">Offline</strong>
                 </div>
             </div>
-        </div>
 
+            <div>
+                <span class="stat-label" style="display:block; margin-bottom:6px;">AI focus mode</span>
+                <select id="focusSelect" onchange="onFocusChange(this.value)"
+                        style="width:100%; background: rgba(255,255,255,0.05); color: var(--text);
+                               border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+                               font-family: inherit; font-size: 13.5px; outline: none;">
+                    <option value="General">General — detect everything</option>
+                    <option value="Plant">Plant / crops &amp; diseases</option>
+                    <option value="Person">People</option>
+                    <option value="Animal">Animals</option>
+                    <option value="Vehicle">Vehicles</option>
+                    <option value="Food">Food &amp; drinks</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Document">Documents &amp; text</option>
+                    <option value="Medical">Medical signs</option>
+                    <option value="Cassava Leaf">Cassava leaf</option>
+                    <option value="Tomato">Tomato</option>
+                </select>
+            </div>
+        </div>
     </div>
 
+    <!-- ---------- main grid ---------- -->
     <div class="main-grid">
 
+        <!-- LEFT: video + upload -->
         <div class="stack">
 
             <div class="card">
@@ -698,136 +587,106 @@
                         <h2>Camera feed</h2>
                         <p>Stream real-time visuals from the connected smartEyes camera.</p>
                     </div>
-
-                    <span class="surface-pill">Camera → AI → Alert</span>
+                    <span class="pill muted">Camera → AI → Alert</span>
                 </div>
 
                 <div class="video-container">
-
-                    <img
-                            id="videoStream"
-                            alt="Live camera stream"
-                    >
-
-                    <div
-                            class="video-placeholder"
-                            id="videoPlaceholder"
-                    >
+                    <img id="videoStream" alt="Live camera stream" />
+                    <canvas id="overlayCanvas"></canvas>
+                    <div class="video-hud" id="videoHud" style="display:none;">
+                        <span class="hud-chip live">LIVE</span>
+                        <span class="hud-chip" id="hudFpsChip">-- fps</span>
+                        <span class="hud-chip" id="hudSizeChip">-- bytes</span>
+                    </div>
+                    <div class="video-placeholder" id="videoPlaceholder">
                         <div class="icon">📷</div>
                         <div>Camera stream is waiting for a live frame.</div>
+                        <div class="hint">Press <strong>Start Stream</strong> to begin.</div>
                     </div>
-
                 </div>
             </div>
-
 
             <div class="card">
                 <div class="section-heading">
                     <div>
                         <div class="eyebrow">Manual analysis</div>
-                        <h2>Upload CCTV snapshot</h2>
+                        <h2>Upload snapshot</h2>
                         <p>Send a still image to the smartEyes engine for event understanding.</p>
                     </div>
-
-                    <span class="surface-pill">JPG, JPEG, PNG</span>
+                    <span class="pill muted">JPG · JPEG · PNG</span>
                 </div>
 
-                <div
-                        class="upload-area"
-                        onclick="document.getElementById('fileInput').click()"
-                >
+                <div class="upload-area" id="uploadArea"
+                     onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">🧠</div>
                     <p>Drop in or click to choose a camera image for AI analysis.</p>
-                    <p class="subtext">smartEyes can use DJL, Gemini, or OpenAI to analyze detected objects based on the active runtime.</p>
+                    <p class="subtext" style="margin-top:6px;">
+                        smartEyes can use DJL, Gemini, or OpenAI to analyze the scene based on the active runtime.
+                    </p>
                 </div>
-
-                <input
-                        type="file"
-                        id="fileInput"
-                        accept="image/*"
-                        onchange="processImageFile(this.files[0])"
-                >
+                <input type="file" id="fileInput" accept="image/*"
+                       onchange="processImageFile(this.files[0])" />
             </div>
 
         </div>
 
-
+        <!-- RIGHT: detection + sensors + logs -->
         <div class="stack">
 
             <div class="card">
                 <div class="section-heading">
                     <div>
                         <div class="eyebrow">Latest analysis</div>
-                        <h2>Incident detection</h2>
-                        <p>Review the latest AI finding, confidence level, and response guidance.</p>
+                        <h2>Detection result</h2>
+                        <p>Review the latest AI finding, confidence, and response guidance.</p>
                     </div>
-
-                    <span
-                            class="surface-pill"
-                            id="aiModeValue"
-                    >
-                        Awaiting AI analysis
-                    </span>
+                    <span class="pill" id="aiModeValue">Awaiting AI analysis</span>
                 </div>
 
-                <div
-                        class="loading"
-                        id="detectionLoading"
-                >
+                <div class="loading" id="detectionLoading">
                     <div class="spinner"></div>
-
-                    <p style="margin-top:10px;">
-                        Analyzing image...
-                    </p>
+                    <p style="margin-top:10px;">Analyzing image…</p>
                 </div>
 
-                <div
-                        class="detection-result"
-                        id="detectionResult"
-                >
+                <div class="detection-result" id="detectionResult">
                     <div class="detection-hero">
-                        <div>
+                        <div style="flex:1;">
                             <div class="mini-label">Detected event</div>
-                            <div
-                                    class="detection-title"
-                                    id="diseaseValue"
-                            >
-                                --
+                            <div class="detection-title" id="diseaseValue">--</div>
+                            <div class="detection-subtitle" id="summaryValue"></div>
+                        </div>
+                        <div style="min-width:120px;">
+                            <span class="confidence" id="confidenceValue">--</span>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" id="confidenceFill"></div>
                             </div>
                         </div>
-
-                        <span
-                                class="confidence"
-                                id="confidenceValue"
-                        >
-                            --
-                        </span>
                     </div>
 
-                    <div class="detection-grid">
+                    <div class="domain-chips" id="domainChips"></div>
+
+                    <div class="detection-grid" style="margin-top:12px;">
                         <div class="detection-item">
                             <span>Status</span>
                             <strong id="detectionStatus">--</strong>
                         </div>
-
                         <div class="detection-item">
                             <span>Recommended response</span>
                             <strong id="treatmentValue">--</strong>
                         </div>
-
                         <div class="detection-item">
-                            <span>Available AI Analysis Modes</span>
+                            <span>Available AI modes</span>
                             <strong id="availableAiModesValue">Awaiting detection</strong>
                         </div>
-
                         <div class="detection-item">
-                            <span>DJL / Provider Status</span>
+                            <span>Provider / engine</span>
                             <strong id="djlEnginesValue">Awaiting detection</strong>
                         </div>
                     </div>
+
+                    <div class="result-list" id="resultList"></div>
                 </div>
             </div>
-
 
             <div class="card">
                 <div class="section-heading">
@@ -836,82 +695,30 @@
                         <h2>Site environment</h2>
                         <p>Track environmental signals across farms, campuses, and facilities.</p>
                     </div>
-
-                    <button
-                            class="secondary"
-                            onclick="requestSensorData()"
-                    >
-                        🔄 Refresh Sensors
-                    </button>
+                    <button class="secondary sm" onclick="requestSensorData()">🔄 Refresh</button>
                 </div>
 
-                <div
-                        class="sensor-data"
-                        id="sensorData"
-                >
-
+                <div class="sensor-data">
                     <div class="sensor-item">
                         <span class="sensor-icon">🌡️</span>
-
-                        <div
-                                class="sensor-value"
-                                id="temperatureValue"
-                        >
-                            --.-
-                        </div>
-
+                        <div class="sensor-value" id="temperatureValue">--.-</div>
                         <div class="sensor-label">Temperature (°C)</div>
-
-                        <div
-                                class="sensor-status invalid"
-                                id="tempStatus"
-                        >
-                            No data
-                        </div>
+                        <div class="sensor-status invalid" id="tempStatus">No data</div>
                     </div>
-
 
                     <div class="sensor-item">
                         <span class="sensor-icon">💧</span>
-
-                        <div
-                                class="sensor-value"
-                                id="humidityValue"
-                        >
-                            --.-
-                        </div>
-
+                        <div class="sensor-value" id="humidityValue">--.-</div>
                         <div class="sensor-label">Humidity (%)</div>
-
-                        <div
-                                class="sensor-status invalid"
-                                id="humidityStatus"
-                        >
-                            No data
-                        </div>
+                        <div class="sensor-status invalid" id="humidityStatus">No data</div>
                     </div>
-
 
                     <div class="sensor-item">
                         <span class="sensor-icon">🌱</span>
-
-                        <div
-                                class="sensor-value"
-                                id="soilMoistureValue"
-                        >
-                            --.-
-                        </div>
-
-                        <div class="sensor-label">Soil Moisture (%)</div>
-
-                        <div
-                                class="sensor-status invalid"
-                                id="soilMoistureStatus"
-                        >
-                            No data
-                        </div>
+                        <div class="sensor-value" id="soilMoistureValue">--.-</div>
+                        <div class="sensor-label">Soil moisture (%)</div>
+                        <div class="sensor-status invalid" id="soilMoistureStatus">No data</div>
                     </div>
-
                 </div>
 
                 <div class="sensor-footer">
@@ -920,1823 +727,809 @@
                 </div>
             </div>
 
-
             <div class="card">
                 <div class="section-heading">
                     <div>
                         <div class="eyebrow">Operations feed</div>
                         <h2>Security timeline</h2>
-                        <p>Review live telemetry, connection events, and AI activity.</p>
+                        <p>Live telemetry, connection events, and AI activity.</p>
                     </div>
-
-                    <span class="surface-pill">Live logs</span>
+                    <span class="pill muted">Live logs</span>
                 </div>
 
-                <div
-                        class="logs"
-                        id="logs"
-                ></div>
+                <div class="logs-toolbar">
+                    <button class="ghost sm" onclick="clearLogs()">🧹 Clear</button>
+                    <button class="ghost sm" onclick="copyLogs()">📋 Copy</button>
+                </div>
+
+                <div class="logs" id="logs"></div>
             </div>
 
         </div>
-
     </div>
-
 </div>
 
-
-<div
-        class="notification"
-        id="notification"
-></div>
-
+<div class="toast-stack" id="toastStack"></div>
 
 <script>
+    /* ================================================================
+     *  CONFIG
+     * ================================================================ */
+    const BACKEND_HOST = "smarteye-lme3.onrender.com";
 
-    const WS_URL =
-        "wss://crop-disease-detector-8nqt.onrender.com:443/camera-stream";
-
-    const API_URL =
-        "https://crop-disease-detector-8nqt.onrender.com:443";
+    const WS_URL  = "wss://" + BACKEND_HOST + "/camera-stream";
+    const API_URL = "https://" + BACKEND_HOST;
 
     const DEVICE_ID = "camera_01";
-    const LOCATION = "Field_A";
-    const CROP_TYPE = "Tomato";
+    const LOCATION  = "Field_A";
+    let   FOCUS     = "General";   // universal by default
 
-
+    /* ================================================================
+     *  STATE
+     * ================================================================ */
     let socket = null;
     let reconnectTimer = null;
     let heartbeatTimer = null;
+    let reconnectAttempts = 0;
+
+    let currentVideoUrl = null;
+    let streamActive = false;
 
     let lastTemperature = null;
     let lastHumidity = null;
     let lastSoilMoisture = null;
 
-    let sensorValid = false;
-    let lastSensorUpdate = null;
-    let streamActive = false;
+    let frameCountWindow = 0;
+    let frameCountLast = 0;
+    let fpsTimer = null;
+    let lastFrameBytes = 0;
 
-    let currentVideoUrl = null;
+    const MAX_LOG_LINES = 400;
+    const logBuffer = [];
 
+    /* ================================================================
+     *  DOM
+     * ================================================================ */
+    const $ = (id) => document.getElementById(id);
 
-    const videoStream =
-        document.getElementById("videoStream");
+    const videoStream      = $("videoStream");
+    const videoPlaceholder = $("videoPlaceholder");
+    const videoHud         = $("videoHud");
+    const overlayCanvas    = $("overlayCanvas");
 
-    const videoPlaceholder =
-        document.getElementById("videoPlaceholder");
+    const connectionDot    = $("connectionDot");
+    const connectionText   = $("connectionText");
 
-    const connectionDot =
-        document.getElementById("connectionDot");
+    const temperatureValue = $("temperatureValue");
+    const humidityValue    = $("humidityValue");
+    const soilMoistureValue= $("soilMoistureValue");
+    const tempStatus       = $("tempStatus");
+    const humidityStatus   = $("humidityStatus");
+    const soilMoistureStatus = $("soilMoistureStatus");
+    const sensorStatus     = $("sensorStatus");
+    const sensorUpdateTime = $("sensorUpdateTime");
 
-    const connectionText =
-        document.getElementById("connectionText");
+    const logsEl           = $("logs");
 
-    const temperatureValue =
-        document.getElementById("temperatureValue");
-
-    const humidityValue =
-        document.getElementById("humidityValue");
-
-    const soilMoistureValue =
-        document.getElementById("soilMoistureValue");
-
-    const tempStatus =
-        document.getElementById("tempStatus");
-
-    const humidityStatus =
-        document.getElementById("humidityStatus");
-
-    const soilMoistureStatus =
-        document.getElementById("soilMoistureStatus");
-
-    const sensorStatus =
-        document.getElementById("sensorStatus");
-
-    const sensorUpdateTime =
-        document.getElementById("sensorUpdateTime");
-
-    const logs =
-        document.getElementById("logs");
-
-
+    /* ================================================================
+     *  LOGGING
+     * ================================================================ */
     function addLog(type, message) {
+        const time = new Date().toLocaleTimeString();
+        const log = document.createElement("div");
+        log.className = "log log-" + type;
+        log.innerHTML = `<span class="log-time">[${escapeHtml(time)}]</span> ${escapeHtml(message)}`;
 
-        const time =
-            new Date().toLocaleTimeString();
+        logBuffer.push(log);
+        if (logBuffer.length > MAX_LOG_LINES) {
+            const old = logBuffer.shift();
+            if (old.parentNode) old.parentNode.removeChild(old);
+        }
 
-        const log =
-            document.createElement("div");
-
-        log.className =
-            "log log-" + type;
-
-        log.innerHTML =
-            `<span class="log-time">[${time}]</span> ${escapeHtml(message)}`;
-
-        logs.appendChild(log);
-
-        logs.scrollTop =
-            logs.scrollHeight;
+        logsEl.appendChild(log);
+        logsEl.scrollTop = logsEl.scrollHeight;
     }
 
+    function clearLogs() {
+        logsEl.innerHTML = "";
+        logBuffer.length = 0;
+        addLog("info", "Logs cleared");
+    }
+
+    function copyLogs() {
+        const text = logBuffer.map(el => el.textContent).join("\n");
+        navigator.clipboard.writeText(text).then(
+            () => showToast("Logs copied", "success"),
+            () => showToast("Could not copy logs", "error")
+        );
+    }
 
     function escapeHtml(value) {
-
-        const div =
-            document.createElement("div");
-
-        div.textContent =
-            String(value);
-
+        const div = document.createElement("div");
+        div.textContent = String(value);
         return div.innerHTML;
     }
 
-
-    function showNotification(
-        message,
-        type = "info"
-    ) {
-
-        const notification =
-            document.getElementById("notification");
-
-        notification.textContent =
-            message;
-
-        notification.className =
-            "notification " + type;
-
-        notification.style.display =
-            "block";
+    /* ================================================================
+     *  TOASTS
+     * ================================================================ */
+    function showToast(message, type = "info", timeoutMs = 3200) {
+        const stack = $("toastStack");
+        const toast = document.createElement("div");
+        toast.className = "toast " + type;
+        toast.textContent = message;
+        stack.appendChild(toast);
 
         setTimeout(() => {
-
-            notification.style.display =
-                "none";
-
-        }, 3000);
+            toast.style.transition = "opacity .3s ease, transform .3s ease";
+            toast.style.opacity = "0";
+            toast.style.transform = "translateX(40px)";
+            setTimeout(() => toast.remove(), 320);
+        }, timeoutMs);
     }
 
-
+    /* ================================================================
+     *  WEBSOCKET
+     * ================================================================ */
     function connectWebSocket() {
+        if (socket && (socket.readyState === WebSocket.OPEN ||
+            socket.readyState === WebSocket.CONNECTING)) return;
 
-        if (
-            socket &&
-            (
-                socket.readyState === WebSocket.OPEN ||
-                socket.readyState === WebSocket.CONNECTING
-            )
-        ) {
+        addLog("info", "Connecting to " + WS_URL + " …");
+
+        try {
+            socket = new WebSocket(WS_URL);
+        } catch (err) {
+            addLog("error", "WebSocket creation failed: " + err.message);
+            scheduleReconnect();
             return;
         }
 
-        addLog(
-            "info",
-            "Connecting to WebSocket..."
-        );
+        socket.binaryType = "blob";
 
-        socket =
-            new WebSocket(WS_URL);
-
-        socket.binaryType =
-            "blob";
-
-
-        socket.onopen = function() {
-
-            connectionDot.classList.add(
-                "connected"
-            );
-
-            connectionText.textContent =
-                "Connected";
-
-            document.getElementById(
-                "deviceConnectionValue"
-            ).textContent =
-                "Online";
-
-            addLog(
-                "success",
-                "WebSocket connected"
-            );
-
+        socket.onopen = () => {
+            reconnectAttempts = 0;
+            setConnectionUI(true);
+            addLog("success", "WebSocket connected");
             registerDevice();
-
             startHeartbeat();
-
+            startFpsCounter();
         };
 
-
-        socket.onclose = function() {
-
-            connectionDot.classList.remove(
-                "connected"
-            );
-
-            connectionText.textContent =
-                "Disconnected";
-
-            document.getElementById(
-                "deviceConnectionValue"
-            ).textContent =
-                "Offline";
-
-            addLog(
-                "error",
-                "WebSocket disconnected"
-            );
-
+        socket.onclose = (ev) => {
+            setConnectionUI(false);
             stopHeartbeat();
-
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
-            }
-
-            reconnectTimer =
-                setTimeout(
-                    connectWebSocket,
-                    5000
-                );
-
+            stopFpsCounter();
+            addLog("error", `WebSocket closed (code ${ev.code})`);
+            scheduleReconnect();
         };
 
-
-        socket.onerror = function() {
-
-            addLog(
-                "error",
-                "WebSocket error"
-            );
-
+        socket.onerror = () => {
+            addLog("error", "WebSocket error");
         };
 
-
-        socket.onmessage = function(event) {
-
+        socket.onmessage = (event) => {
             if (event.data instanceof Blob) {
-
-                handleVideoBlob(
-                    event.data
-                );
-
+                handleVideoBlob(event.data);
                 return;
             }
-
-
             if (event.data instanceof ArrayBuffer) {
-
-                const blob =
-                    new Blob(
-                        [event.data],
-                        {
-                            type: "image/jpeg"
-                        }
-                    );
-
-                handleVideoBlob(blob);
-
+                handleVideoBlob(new Blob([event.data], { type: "image/jpeg" }));
                 return;
             }
-
-
-            if (
-                typeof event.data === "string"
-            ) {
-
-                handleMessage(
-                    event.data
-                );
-
+            if (typeof event.data === "string") {
+                handleMessage(event.data);
                 return;
             }
-
-
-            addLog(
-                "info",
-                "Unknown WebSocket message received"
-            );
-
         };
-
     }
 
+    function scheduleReconnect() {
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        const delay = Math.min(30_000, 1500 * Math.pow(1.6, reconnectAttempts++));
+        addLog("info", `Reconnecting in ${Math.round(delay / 1000)}s …`);
+        reconnectTimer = setTimeout(connectWebSocket, delay);
+    }
 
+    function setConnectionUI(connected) {
+        connectionDot.classList.toggle("connected", connected);
+        $("headerDot").classList.toggle("connected", connected);
+        connectionText.textContent = connected ? "Connected" : "Disconnected";
+        $("headerConnectionText").textContent = connected ? "Online" : "Offline";
+        $("deviceConnectionValue").textContent = connected ? "Online" : "Offline";
+    }
+
+    /* ================================================================
+     *  HEARTBEAT
+     * ================================================================ */
+    function startHeartbeat() {
+        stopHeartbeat();
+        heartbeatTimer = setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: "ping" }));
+            }
+        }, 25_000);
+    }
+    function stopHeartbeat() {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+
+    /* ================================================================
+     *  FPS
+     * ================================================================ */
+    function startFpsCounter() {
+        stopFpsCounter();
+        frameCountWindow = 0;
+        frameCountLast = Date.now();
+        fpsTimer = setInterval(() => {
+            const now = Date.now();
+            const dt = (now - frameCountLast) / 1000;
+            const fps = dt > 0 ? (frameCountWindow / dt) : 0;
+            $("hudFpsChip").textContent = fps.toFixed(1) + " fps";
+            frameCountWindow = 0;
+            frameCountLast = now;
+        }, 2000);
+    }
+    function stopFpsCounter() {
+        if (fpsTimer) clearInterval(fpsTimer);
+        fpsTimer = null;
+    }
+
+    /* ================================================================
+     *  VIDEO FRAME HANDLER
+     * ================================================================ */
     function handleVideoBlob(blob) {
+        if (!blob || blob.size === 0) return;
 
-        if (!blob || blob.size === 0) {
+        frameCountWindow++;
+        lastFrameBytes = blob.size;
+        $("hudSizeChip").textContent = formatBytes(blob.size);
 
-            addLog(
-                "error",
-                "Received empty camera frame"
-            );
+        const imageBlob = blob.type ? blob : new Blob([blob], { type: "image/jpeg" });
+        const imageUrl = URL.createObjectURL(imageBlob);
 
-            return;
-        }
+        if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+        currentVideoUrl = imageUrl;
 
-
-        addLog(
-            "info",
-            `Camera frame received: ${blob.size} bytes`
-        );
-
-
-        const imageBlob =
-            blob.type
-                ? blob
-                : new Blob(
-                    [blob],
-                    {
-                        type: "image/jpeg"
-                    }
-                );
-
-
-        const imageUrl =
-            URL.createObjectURL(
-                imageBlob
-            );
-
-
-        if (currentVideoUrl) {
-
-            URL.revokeObjectURL(
-                currentVideoUrl
-            );
-
-        }
-
-
-        currentVideoUrl =
-            imageUrl;
-
-
-        videoStream.onload = function() {
-
-            videoStream.style.display =
-                "block";
-
-            videoPlaceholder.style.display =
-                "none";
-
-            streamActive =
-                true;
-
+        videoStream.onload = () => {
+            videoStream.style.display = "block";
+            videoPlaceholder.style.display = "none";
+            videoHud.style.display = "flex";
+            streamActive = true;
         };
-
-
-        videoStream.onerror = function() {
-
-            addLog(
-                "error",
-                "Failed to display camera JPEG frame"
-            );
-
-            videoStream.style.display =
-                "none";
-
-            videoPlaceholder.style.display =
-                "block";
-
+        videoStream.onerror = () => {
+            addLog("error", "Failed to display camera frame");
         };
-
-
-        videoStream.src =
-            imageUrl;
-
+        videoStream.src = imageUrl;
     }
 
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+    }
 
+    /* ================================================================
+     *  REGISTRATION
+     * ================================================================ */
     function registerDevice() {
-
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
-            return;
-        }
-
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
         const message = {
-
             type: "register",
-
-            device_id:
-            DEVICE_ID,
-
-            location:
-            LOCATION,
-
-            cropType:
-            CROP_TYPE
-
+            deviceId: DEVICE_ID,          // ← new casing
+            device_id: DEVICE_ID,         // ← legacy casing
+            location: LOCATION,
+            focus: FOCUS,                 // ← new field
+            cropType: FOCUS               // ← legacy alias
         };
 
-
-        socket.send(
-            JSON.stringify(message)
-        );
-
-
-        addLog(
-            "info",
-            "Device registration sent"
-        );
-
+        socket.send(JSON.stringify(message));
+        addLog("info", `Registered device (focus: ${FOCUS})`);
     }
 
+    function onFocusChange(value) {
+        FOCUS = value || "General";
+        $("cropTypeValue").textContent = FOCUS;
+        $("headerFocusPill").textContent = "Focus: " + FOCUS;
 
-    function startHeartbeat() {
-
-        stopHeartbeat();
-
-
-        heartbeatTimer =
-            setInterval(() => {
-
-                if (
-                    socket &&
-                    socket.readyState === WebSocket.OPEN
-                ) {
-
-                    socket.send(
-                        JSON.stringify({
-                            type: "ping"
-                        })
-                    );
-
-                }
-
-            }, 30000);
-
-    }
-
-
-    function stopHeartbeat() {
-
-        if (heartbeatTimer) {
-
-            clearInterval(
-                heartbeatTimer
-            );
-
-            heartbeatTimer =
-                null;
-
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "set_focus", focus: FOCUS }));
+            addLog("info", "Focus changed → " + FOCUS);
+            showToast("AI focus: " + FOCUS, "info");
         }
-
     }
 
-
+    /* ================================================================
+     *  MESSAGE DISPATCH
+     * ================================================================ */
     function handleMessage(data) {
-
-        if (
-            data instanceof Blob
-        ) {
-
-            handleVideoBlob(data);
-
-            return;
-
-        }
-
-
-        if (
-            data instanceof ArrayBuffer
-        ) {
-
-            handleVideoBlob(
-                new Blob(
-                    [data],
-                    {
-                        type: "image/jpeg"
-                    }
-                )
-            );
-
-            return;
-
-        }
-
-
-        const text =
-            String(data);
-
+        const text = String(data);
 
         let json;
+        try { json = JSON.parse(text); }
+        catch (e) { addLog("info", text); return; }
 
+        if (!json || typeof json !== "object") return;
 
-        try {
-
-            json =
-                JSON.parse(text);
-
-        } catch (error) {
-
-            handleText(text);
-
-            return;
-
-        }
-
-
-        if (!json || typeof json !== "object") {
-
-            return;
-
-        }
-
-
-        const type =
-            json.type ||
-            json.messageType ||
-            json.event;
-
+        const type = json.type || json.messageType || json.event;
 
         switch (type) {
-
             case "pong":
-
-                addLog(
-                    "info",
-                    "Heartbeat received"
-                );
-
+                addLog("info", "Heartbeat received");
                 break;
-
 
             case "ping":
-
-                if (
-                    socket &&
-                    socket.readyState === WebSocket.OPEN
-                ) {
-
-                    socket.send(
-                        JSON.stringify({
-                            type: "pong"
-                        })
-                    );
-
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: "pong" }));
                 }
-
                 break;
-
 
             case "system":
-
-                addLog(
-                    "info",
-                    json.message ||
-                    "System message"
-                );
-
+                addLog("info", json.message || "System message");
                 break;
-
 
             case "register":
-
             case "device_registered":
-
-                addLog(
-                    "success",
-                    "Device registered successfully"
-                );
-
+                addLog("success", "Device registered successfully");
                 break;
 
+            case "focus_set":
+                addLog("info", "Focus acknowledged: " + (json.focus || "?"));
+                break;
 
             case "sensor_data":
-
+            case "sensor_update":
                 handleSensorMessage(json);
-
                 break;
-
 
             case "status":
-
             case "status_response":
-
                 handleStatus(json);
-
                 break;
-
 
             case "command_response":
-
-                addLog(
-                    "info",
-                    json.message ||
-                    "Command response received"
-                );
-
-                if (
-                    hasSensorData(json)
-                ) {
-
-                    handleSensorMessage(json);
-
-                }
-
+                addLog("info", json.message || ("Command: " + (json.command || "?")));
+                if (hasSensorData(json)) handleSensorMessage(json);
                 break;
-
 
             case "detection":
-
             case "comprehensive_detection":
-
+            case "universal_detection":
                 handleDetection(json);
-
                 break;
-
 
             case "echo":
-
-                addLog(
-                    "info",
-                    json.message ||
-                    "Echo received"
-                );
-
+                addLog("info", json.message || "Echo received");
                 break;
-
 
             default:
-
-                if (
-                    hasSensorData(json)
-                ) {
-
-                    handleSensorMessage(json);
-
-                } else {
-
-                    addLog(
-                        "info",
-                        JSON.stringify(json)
-                    );
-
-                }
-
-                break;
-
+                if (hasSensorData(json)) handleSensorMessage(json);
+                else addLog("info", JSON.stringify(json));
         }
-
     }
-
 
     function hasSensorData(json) {
-
-        return (
-            json &&
-            (
-                json.temperature !== undefined ||
-                json.humidity !== undefined ||
-                json.soilMoisture !== undefined
-            )
+        return json && (
+            json.temperature !== undefined ||
+            json.humidity    !== undefined ||
+            json.soilMoisture !== undefined
         );
-
     }
 
-
+    /* ================================================================
+     *  SENSORS
+     * ================================================================ */
     function handleSensorMessage(json) {
+        const t = getValidNumber(json.temperature);
+        const h = getValidNumber(json.humidity);
+        const s = getValidNumber(json.soilMoisture);
 
-        const temperature =
-            getValidNumber(
-                json.temperature
-            );
+        const tt = t !== null ? t.toFixed(1) : "--";
+        const ht = h !== null ? h.toFixed(1) : "--";
+        const st = s !== null ? s.toFixed(1) : "--";
 
-        const humidity =
-            getValidNumber(
-                json.humidity
-            );
-
-        const soilMoisture =
-            getValidNumber(
-                json.soilMoisture
-            );
-
-
-        const temperatureText =
-            temperature !== null
-                ? temperature.toFixed(1)
-                : "--";
-
-
-        const humidityText =
-            humidity !== null
-                ? humidity.toFixed(1)
-                : "--";
-
-
-        const soilText =
-            soilMoisture !== null
-                ? soilMoisture.toFixed(1)
-                : "--";
-
-
-        addLog(
-            "sensor",
-            `🌡️ ${temperatureText}°C | 💧 ${humidityText}% | 🌱 Soil: ${soilText}%`
-        );
-
-
-        updateSensorData(
-            temperature,
-            humidity,
-            soilMoisture,
-            json.soilStatus
-        );
-
+        addLog("sensor", `🌡️ ${tt}°C | 💧 ${ht}% | 🌱 Soil: ${st}%`);
+        updateSensorData(t, h, s, json.soilStatus);
     }
-
-
-    function handleText(data) {
-
-        if (
-            data instanceof Blob
-        ) {
-
-            handleVideoBlob(data);
-
-            return;
-
-        }
-
-
-        if (
-            data instanceof ArrayBuffer
-        ) {
-
-            handleVideoBlob(
-                new Blob(
-                    [data],
-                    {
-                        type: "image/jpeg"
-                    }
-                )
-            );
-
-            return;
-
-        }
-
-
-        const text =
-            String(data);
-
-
-        if (
-            text
-                .toLowerCase()
-                .includes("pong")
-        ) {
-
-            addLog(
-                "info",
-                "Heartbeat received"
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            const json =
-                JSON.parse(text);
-
-
-            if (
-                hasSensorData(json)
-            ) {
-
-                handleSensorMessage(json);
-
-                return;
-
-            }
-
-        } catch (error) {
-
-        }
-
-
-        addLog(
-            "info",
-            text
-        );
-
-    }
-
 
     function getValidNumber(value) {
-
-        if (
-            value === undefined ||
-            value === null ||
-            value === ""
-        ) {
-
-            return null;
-
-        }
-
-
-        const number =
-            Number(value);
-
-
-        if (
-            !Number.isFinite(number)
-        ) {
-
-            return null;
-
-        }
-
-
-        return number;
-
+        if (value === undefined || value === null || value === "") return null;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
     }
 
-
-    function getSoilMoistureStatus(
-        moisture
-    ) {
-
-        const value =
-            Number(moisture);
-
-
-        if (
-            !Number.isFinite(value)
-        ) {
-
-            return {
-
-                label:
-                    "No data",
-
-                className:
-                    "invalid"
-
-            };
-
-        }
-
-
-        if (value < 20) {
-
-            return {
-
-                label:
-                    "🔴 DRY",
-
-                className:
-                    "invalid"
-
-            };
-
-        }
-
-
-        if (value < 40) {
-
-            return {
-
-                label:
-                    "🟠 LOW",
-
-                className:
-                    "warning"
-
-            };
-
-        }
-
-
-        if (value <= 70) {
-
-            return {
-
-                label:
-                    "🟢 OPTIMAL",
-
-                className:
-                    "valid"
-
-            };
-
-        }
-
-
-        return {
-
-            label:
-                "🔵 WET",
-
-            className:
-                "wet"
-
-        };
-
+    function getSoilMoistureStatus(moisture) {
+        const v = Number(moisture);
+        if (!Number.isFinite(v)) return { label: "No data", className: "invalid" };
+        if (v < 20) return { label: "🔴 DRY",     className: "invalid" };
+        if (v < 40) return { label: "🟠 LOW",     className: "warning" };
+        if (v <= 70) return { label: "🟢 OPTIMAL", className: "valid" };
+        return { label: "🔵 WET", className: "wet" };
     }
 
+    function updateSensorData(temperature, humidity, soilMoisture, soilStatusFromServer = null) {
+        const t = getValidNumber(temperature);
+        const h = getValidNumber(humidity);
+        const s = getValidNumber(soilMoisture);
 
-    function updateSensorData(
-        temperature,
-        humidity,
-        soilMoisture,
-        soilStatusFromServer = null
-    ) {
-
-        const temp =
-            getValidNumber(
-                temperature
-            );
-
-        const hum =
-            getValidNumber(
-                humidity
-            );
-
-        const soil =
-            getValidNumber(
-                soilMoisture
-            );
-
-
-        const hasTemperature =
-            temp !== null;
-
-
-        const hasHumidity =
-            hum !== null;
-
-
-        const hasSoil =
-            soil !== null;
-
-
-        if (hasTemperature) {
-
-            lastTemperature =
-                temp;
-
-
-            temperatureValue.textContent =
-                lastTemperature.toFixed(1);
-
-
-            tempStatus.textContent =
-                "✓ Active";
-
-
-            tempStatus.className =
-                "sensor-status valid";
-
+        if (t !== null) {
+            lastTemperature = t;
+            temperatureValue.textContent = t.toFixed(1);
+            tempStatus.textContent = "✓ Active";
+            tempStatus.className = "sensor-status valid";
         }
-
-
-        if (hasHumidity) {
-
-            lastHumidity =
-                hum;
-
-
-            humidityValue.textContent =
-                lastHumidity.toFixed(1);
-
-
-            humidityStatus.textContent =
-                "✓ Active";
-
-
-            humidityStatus.className =
-                "sensor-status valid";
-
+        if (h !== null) {
+            lastHumidity = h;
+            humidityValue.textContent = h.toFixed(1);
+            humidityStatus.textContent = "✓ Active";
+            humidityStatus.className = "sensor-status valid";
         }
+        if (s !== null) {
+            lastSoilMoisture = Math.max(0, Math.min(100, s));
+            soilMoistureValue.textContent = lastSoilMoisture.toFixed(1);
 
+            const calc = getSoilMoistureStatus(lastSoilMoisture);
+            let label = calc.label, cls = calc.className;
 
-        if (hasSoil) {
-
-            lastSoilMoisture =
-                Math.max(
-                    0,
-                    Math.min(
-                        100,
-                        soil
-                    )
-                );
-
-
-            soilMoistureValue.textContent =
-                lastSoilMoisture.toFixed(1);
-
-
-            const calculatedStatus =
-                getSoilMoistureStatus(
-                    lastSoilMoisture
-                );
-
-
-            let statusLabel =
-                calculatedStatus.label;
-
-
-            let statusClass =
-                calculatedStatus.className;
-
-
-            if (
-                soilStatusFromServer
-            ) {
-
-                const serverStatus =
-                    String(
-                        soilStatusFromServer
-                    )
-                        .trim()
-                        .toUpperCase();
-
-
-                if (
-                    serverStatus === "DRY"
-                ) {
-
-                    statusLabel =
-                        "🔴 DRY";
-
-                    statusClass =
-                        "invalid";
-
-                } else if (
-                    serverStatus === "LOW"
-                ) {
-
-                    statusLabel =
-                        "🟠 LOW";
-
-                    statusClass =
-                        "warning";
-
-                } else if (
-                    serverStatus === "OPTIMAL"
-                ) {
-
-                    statusLabel =
-                        "🟢 OPTIMAL";
-
-                    statusClass =
-                        "valid";
-
-                } else if (
-                    serverStatus === "WET"
-                ) {
-
-                    statusLabel =
-                        "🔵 WET";
-
-                    statusClass =
-                        "wet";
-
-                }
-
+            if (soilStatusFromServer) {
+                const up = String(soilStatusFromServer).trim().toUpperCase();
+                if (up === "DRY")     { label = "🔴 DRY";     cls = "invalid"; }
+                if (up === "LOW")     { label = "🟠 LOW";     cls = "warning"; }
+                if (up === "OPTIMAL") { label = "🟢 OPTIMAL"; cls = "valid";   }
+                if (up === "WET")     { label = "🔵 WET";     cls = "wet";     }
             }
 
-
-            soilMoistureStatus.textContent =
-                statusLabel;
-
-
-            soilMoistureStatus.className =
-                "sensor-status " +
-                statusClass;
-
+            soilMoistureStatus.textContent = label;
+            soilMoistureStatus.className = "sensor-status " + cls;
         }
 
-
-        if (
-            hasTemperature ||
-            hasHumidity ||
-            hasSoil
-        ) {
-
-            sensorValid =
-                true;
-
-
-            lastSensorUpdate =
-                new Date();
-
-
-            sensorStatus.textContent =
-                "Sensor online";
-
-
-            sensorStatus.style.color =
-                "#22c55e";
-
-
-            sensorUpdateTime.textContent =
-                lastSensorUpdate
-                    .toLocaleTimeString();
-
+        if (t !== null || h !== null || s !== null) {
+            sensorStatus.textContent = "Sensor online";
+            sensorStatus.style.color = "#34d399";
+            sensorUpdateTime.textContent = new Date().toLocaleTimeString();
         }
-
     }
 
-
+    /* ================================================================
+     *  STATUS
+     * ================================================================ */
     function handleStatus(json) {
-
-        if (
-            hasSensorData(json)
-        ) {
-
-            handleSensorMessage(json);
-
-        }
-
-
-        if (
-            json.streaming !== undefined
-        ) {
-
-            streamActive =
-                Boolean(
-                    json.streaming
-                );
-
-            updateStreamUI();
-
-        }
-
-
-        addLog(
-            "info",
-            "Device status received"
-        );
-
+        if (hasSensorData(json)) handleSensorMessage(json);
+        addLog("info", "Device status received");
     }
 
-
+    /* ================================================================
+     *  DETECTION
+     * ================================================================ */
     function handleDetection(json) {
+        // The service can emit "universal_detection" (new) or "comprehensive_detection" (legacy)
+        const results = Array.isArray(json.results) ? json.results : [];
+        const top = json.topResult
+            || (results.length > 0 ? results[0] : null)
+            || {};
 
-        const primaryResult =
-            json.topResult ||
-            (
-                Array.isArray(json.results) &&
-                json.results.length > 0
-                    ? json.results[0]
-                    : null
-            ) ||
-            json;
-
-        const disease =
-            primaryResult.className ||
+        const className =
+            top.className ||
+            json.topDetection ||
             json.disease ||
-            json.diseaseName ||
-            json.prediction ||
             json.label ||
             "Unknown";
 
+        const probability =
+            typeof top.probability === "number" ? top.probability
+                : typeof json.topConfidence === "number" ? json.topConfidence / 100
+                    : typeof json.confidence === "number" ? json.confidence
+                        : 0;
 
-        const confidence =
-            primaryResult.probability ??
-            json.confidence ??
-            json.topConfidence ??
-            json.score ??
-            0;
+        const domain = top.domain || json.topDomain || "UNKNOWN";
+        const severity = top.severity || json.severity || "NONE";
+        const healthStatus = top.healthStatus || json.healthStatus || "unknown";
+        const treatment = top.treatment || json.treatment || json.advice || "--";
+        const summary = json.summary || json.message || "";
+        const whenToAct = top.whenToAct || json.whenToAct || "";
 
+        const availableAiModes = Array.isArray(json.availableAiModes)
+            ? json.availableAiModes
+            : (json.aiStack && Array.isArray(json.aiStack.installedModes)
+                ? json.aiStack.installedModes : []);
 
-        const status =
-            json.status ||
-            (
-                String(disease)
-                    .toLowerCase()
-                    .includes("healthy")
-                    ? "HEALTHY"
-                    : "DETECTED"
-            );
-
-
-        const treatment =
-            primaryResult.treatment ||
-            json.treatment ||
-            json.recommendation ||
-            json.advice ||
-            "--";
-
-
-        const availableAiModes =
-            Array.isArray(json.availableAiModes)
-                ? json.availableAiModes
-                : (
-                    json.aiStack &&
-                    Array.isArray(json.aiStack.installedModes)
-                        ? json.aiStack.installedModes
-                        : []
-                );
-
-
-        const djlEngines =
-            Array.isArray(json.djlEngines)
-                ? json.djlEngines
-                : (
-                    json.aiStack &&
-                    Array.isArray(json.aiStack.djlEngines)
-                        ? json.aiStack.djlEngines
-                        : []
-                );
-
-        const hasGeminiMode =
-            availableAiModes.includes("Gemini");
-
-        const hasOpenAiMode =
-            availableAiModes.includes("OpenAI");
+        const djlEngines = Array.isArray(json.djlEngines)
+            ? json.djlEngines
+            : (json.aiStack && Array.isArray(json.aiStack.djlEngines)
+                ? json.aiStack.djlEngines : []);
 
         const effectiveAiMode =
-            json.aiMode &&
-            json.aiMode !== "Unavailable"
+            json.aiMode && json.aiMode !== "Unavailable"
                 ? json.aiMode
-                : (
-                    djlEngines.length > 0
-                        ? "DJL local runtime"
-                        : (
-                            hasGeminiMode && hasOpenAiMode
-                                ? "Gemini / OpenAI object analysis"
-                                : (
-                                    hasGeminiMode
-                                        ? "Gemini object analysis"
-                                        : (
-                                            hasOpenAiMode
-                                                ? "OpenAI object analysis"
-                                                : "AI pipeline available"
-                                        )
-                                )
-                        )
-                );
+                : (availableAiModes.length ? availableAiModes.join(" / ") : "AI pipeline");
 
-        const aiLogParts = [];
+        // ---- Populate ----
+        $("diseaseValue").textContent = className;
+        $("summaryValue").textContent = summary;
+        $("confidenceValue").textContent = formatConfidence(probability);
 
-        if (json.aiMode) {
-            aiLogParts.push(
-                "AI mode: " + effectiveAiMode
-            );
+        const fill = $("confidenceFill");
+        const pct = probability <= 1 ? probability * 100 : probability;
+        fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+
+        $("detectionStatus").textContent =
+            healthStatus && healthStatus !== "unknown"
+                ? healthStatus.toUpperCase()
+                : (severity && severity !== "NONE" ? severity : "DETECTED");
+
+        const responseText = whenToAct
+            ? `${treatment} — ${whenToAct}`
+            : treatment;
+        $("treatmentValue").textContent = responseText;
+
+        $("aiModeValue").textContent = effectiveAiMode;
+        $("availableAiModesValue").textContent =
+            availableAiModes.length ? availableAiModes.join(", ") : "No AI components reported";
+        $("djlEnginesValue").textContent =
+            djlEngines.length ? djlEngines.join(", ")
+                : (availableAiModes.length ? "Provider-based analysis" : "No DJL engine");
+
+        // ---- Domain chips ----
+        const chipsEl = $("domainChips");
+        chipsEl.innerHTML = "";
+
+        if (domain && domain !== "UNKNOWN") {
+            const chip = document.createElement("span");
+            chip.className = "chip purple";
+            chip.textContent = "🏷️ " + domain;
+            chipsEl.appendChild(chip);
+        }
+        if (severity && severity !== "NONE") {
+            const chip = document.createElement("span");
+            chip.className = "chip " +
+                (severity === "CRITICAL" || severity === "HIGH" ? "danger" :
+                    severity === "MODERATE" ? "warning" : "success");
+            chip.textContent = "⚠️ " + severity;
+            chipsEl.appendChild(chip);
+        }
+        if (healthStatus && healthStatus !== "unknown") {
+            const chip = document.createElement("span");
+            chip.className = "chip " +
+                (healthStatus.toLowerCase().includes("healthy") ? "success" : "danger");
+            chip.textContent = "⚕️ " + healthStatus;
+            chipsEl.appendChild(chip);
         }
 
-        if (availableAiModes.length > 0) {
-            aiLogParts.push(
-                "Installed AI modes: " + availableAiModes.join(", ")
-            );
+        // ---- Result list ----
+        const listEl = $("resultList");
+        listEl.innerHTML = "";
+        if (results.length > 1) {
+            results.slice(1, 8).forEach(r => {
+                const item = document.createElement("div");
+                item.className = "result-item";
+
+                const left = document.createElement("div");
+                const label = document.createElement("div");
+                label.className = "label";
+                label.textContent = r.className || "unknown";
+                const sub = document.createElement("div");
+                sub.className = "sub";
+                sub.textContent = (r.domain || "UNKNOWN") +
+                    (r.healthStatus && r.healthStatus !== "unknown" ? " · " + r.healthStatus : "");
+                left.appendChild(label);
+                left.appendChild(sub);
+
+                const score = document.createElement("div");
+                score.className = "score";
+                score.textContent = formatConfidence(r.probability || 0);
+
+                item.appendChild(left);
+                item.appendChild(score);
+                listEl.appendChild(item);
+            });
         }
 
-        if (djlEngines.length > 0) {
-            aiLogParts.push(
-                "DJL engines: " + djlEngines.join(", ")
-            );
-        }
+        // ---- Log ----
+        addLog("ai", `Detection: ${className} (${formatConfidence(probability)}) [${domain}]`);
 
-
-        document.getElementById(
-            "diseaseValue"
-        ).textContent =
-            disease;
-
-
-        document.getElementById(
-            "confidenceValue"
-        ).textContent =
-            formatConfidence(
-                confidence
-            );
-
-
-        document.getElementById(
-            "detectionStatus"
-        ).textContent =
-            status;
-
-
-        document.getElementById(
-            "treatmentValue"
-        ).textContent =
-            treatment;
-
-        document.getElementById(
-            "aiModeValue"
-        ).textContent =
-            effectiveAiMode;
-
-        document.getElementById(
-            "availableAiModesValue"
-        ).textContent =
-            availableAiModes.length > 0
-                ? availableAiModes.join(", ")
-                : "No AI components reported";
-
-        document.getElementById(
-            "djlEnginesValue"
-        ).textContent =
-            djlEngines.length > 0
-                ? djlEngines.join(", ")
-                : (
-                    hasGeminiMode || hasOpenAiMode
-                )
-                    ? "No local DJL engine initialized; provider-based analysis available"
-                    : "No DJL engine initialized";
-
-        if (aiLogParts.length > 0) {
-
-            addLog(
-                "info",
-                aiLogParts.join(" | ")
-            );
-        }
-
-
-        addLog(
-            "success",
-            `Detection: ${disease} (${formatConfidence(confidence)})`
-        );
-
+        // ---- Draw bounding boxes on overlay ----
+        drawOverlay(results);
     }
-
 
     function formatConfidence(value) {
-
-        let number =
-            Number(value);
-
-
-        if (
-            !Number.isFinite(number)
-        ) {
-
-            return "--";
-
-        }
-
-
-        if (
-            number <= 1
-        ) {
-
-            number *= 100;
-
-        }
-
-
-        return (
-            number.toFixed(1) +
-            "%"
-        );
-
+        let n = Number(value);
+        if (!Number.isFinite(n)) return "--";
+        if (n <= 1) n *= 100;
+        return n.toFixed(1) + "%";
     }
 
+    /* ================================================================
+     *  BOUNDING BOX OVERLAY
+     * ================================================================ */
+    function drawOverlay(results) {
+        if (!overlayCanvas || !videoStream.naturalWidth) return;
 
-    function startStream() {
+        overlayCanvas.width = videoStream.clientWidth;
+        overlayCanvas.height = videoStream.clientHeight;
+        overlayCanvas.style.display = "block";
 
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
+        const ctx = overlayCanvas.getContext("2d");
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-            showNotification(
-                "WebSocket is not connected",
-                "error"
-            );
+        const boxes = results
+            .map(r => ({
+                label: r.className || "?",
+                score: r.probability || 0,
+                box: r.bbox || (r.x !== undefined ? {
+                    x: r.x, y: r.y, width: r.width, height: r.height
+                } : null)
+            }))
+            .filter(r => r.box && r.box.width > 0);
 
-            connectWebSocket();
-
+        if (!boxes.length) {
+            overlayCanvas.style.display = "none";
             return;
-
         }
 
+        ctx.lineWidth = 2;
+        ctx.font = "600 12px Inter, system-ui, sans-serif";
 
-        socket.send(
-            JSON.stringify({
+        boxes.forEach(({ label, score, box }) => {
+            const x = box.x * overlayCanvas.width;
+            const y = box.y * overlayCanvas.height;
+            const w = box.width * overlayCanvas.width;
+            const h = box.height * overlayCanvas.height;
 
-                type:
-                    "start_stream",
+            ctx.strokeStyle = "#38bdf8";
+            ctx.strokeRect(x, y, w, h);
 
-                device_id:
-                DEVICE_ID
-
-            })
-        );
-
-
-        streamActive =
-            true;
-
-
-        updateStreamUI();
-
-
-        addLog(
-            "success",
-            "Start stream command sent"
-        );
-
+            const text = `${label} ${(score * 100).toFixed(0)}%`;
+            const pad = 4;
+            const tw = ctx.measureText(text).width + pad * 2;
+            const th = 18;
+            ctx.fillStyle = "rgba(56, 189, 248, 0.85)";
+            ctx.fillRect(x, Math.max(0, y - th), tw, th);
+            ctx.fillStyle = "#02131f";
+            ctx.fillText(text, x + pad, Math.max(12, y - 5));
+        });
     }
 
+    /* ================================================================
+     *  STREAM / CAPTURE / STATUS
+     * ================================================================ */
+    function startStream() {
+        if (!isSocketOpen()) { showToast("WebSocket not connected", "error"); return; }
+        socket.send(JSON.stringify({ type: "start_stream", device_id: DEVICE_ID }));
+        streamActive = true;
+        addLog("success", "Start stream command sent");
+    }
 
     function stopStream() {
-
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
-
-            return;
-
-        }
-
-
-        socket.send(
-            JSON.stringify({
-
-                type:
-                    "stop_stream",
-
-                device_id:
-                DEVICE_ID
-
-            })
-        );
-
-
-        streamActive =
-            false;
-
-
-        updateStreamUI();
-
-
-        addLog(
-            "info",
-            "Stop stream command sent"
-        );
-
+        if (!isSocketOpen()) return;
+        socket.send(JSON.stringify({ type: "stop_stream", device_id: DEVICE_ID }));
+        streamActive = false;
+        videoStream.style.display = "none";
+        videoHud.style.display = "none";
+        overlayCanvas.style.display = "none";
+        videoPlaceholder.style.display = "block";
+        addLog("info", "Stop stream command sent");
     }
-
-
-    function updateStreamUI() {
-
-        if (
-            streamActive
-        ) {
-
-            if (
-                videoStream.src
-            ) {
-
-                videoStream.style.display =
-                    "block";
-
-                videoPlaceholder.style.display =
-                    "none";
-
-            }
-
-        } else {
-
-            videoStream.style.display =
-                "none";
-
-            videoPlaceholder.style.display =
-                "block";
-
-        }
-
-    }
-
 
     function captureImage() {
-
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
-
-            showNotification(
-                "WebSocket is not connected",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        socket.send(
-            JSON.stringify({
-
-                type:
-                    "capture",
-
-                device_id:
-                DEVICE_ID
-
-            })
-        );
-
-
-        addLog(
-            "info",
-            "Capture command sent"
-        );
-
+        if (!isSocketOpen()) { showToast("WebSocket not connected", "error"); return; }
+        socket.send(JSON.stringify({ type: "capture", device_id: DEVICE_ID }));
+        addLog("info", "Capture command sent");
     }
-
 
     function getStatus() {
-
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
-
-            showNotification(
-                "WebSocket is not connected",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        socket.send(
-            JSON.stringify({
-
-                type:
-                    "get_status",
-
-                device_id:
-                DEVICE_ID
-
-            })
-        );
-
-
-        addLog(
-            "info",
-            "Status request sent"
-        );
-
+        if (!isSocketOpen()) { showToast("WebSocket not connected", "error"); return; }
+        socket.send(JSON.stringify({ type: "status" }));
+        addLog("info", "Status request sent");
     }
-
 
     function requestSensorData() {
-
-        if (
-            !socket ||
-            socket.readyState !== WebSocket.OPEN
-        ) {
-
-            showNotification(
-                "WebSocket is not connected",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        socket.send(
-            JSON.stringify({
-
-                type:
-                    "get_sensor",
-
-                device_id:
-                DEVICE_ID
-
-            })
-        );
-
-
-        addLog(
-            "sensor",
-            "Sensor data requested"
-        );
-
+        if (!isSocketOpen()) { showToast("WebSocket not connected", "error"); return; }
+        socket.send(JSON.stringify({ type: "get_sensor", device_id: DEVICE_ID }));
+        addLog("sensor", "Sensor data requested");
     }
 
+    function isSocketOpen() {
+        return socket && socket.readyState === WebSocket.OPEN;
+    }
 
+    /* ================================================================
+     *  IMAGE UPLOAD
+     * ================================================================ */
     function processImageFile(file) {
-
-        if (!file) {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            showToast("Please select an image file", "error");
             return;
         }
-
-
-        if (
-            !file.type.startsWith(
-                "image/"
-            )
-        ) {
-
-            showNotification(
-                "Please select an image file",
-                "error"
-            );
-
-            return;
-
-        }
-
-
         sendImageForDetection(file);
-
     }
 
-
-    async function sendImageForDetection(
-        file
-    ) {
-
-        const loading =
-            document.getElementById(
-                "detectionLoading"
-            );
-
-
-        loading.style.display =
-            "block";
-
+    async function sendImageForDetection(file) {
+        const loading = $("detectionLoading");
+        loading.style.display = "block";
 
         try {
+            const formData = new FormData();
+            formData.append("image", file);
+            formData.append("device_id", DEVICE_ID);
+            formData.append("focus", FOCUS);
+            formData.append("cropType", FOCUS); // legacy alias
 
-            const formData =
-                new FormData();
-
-
-            formData.append(
-                "image",
-                file
-            );
-
-
-            formData.append(
-                "device_id",
-                DEVICE_ID
-            );
-
-
-            formData.append(
-                "cropType",
-                CROP_TYPE
-            );
-
-
-            const response =
-                await fetch(
-                    API_URL +
-                    "/api/detect/image",
-                    {
-
-                        method:
-                            "POST",
-
-                        body:
-                        formData
-
-                    }
-                );
-
+            const response = await fetch(API_URL + "/api/detect/image", {
+                method: "POST",
+                body: formData
+            });
 
             let data;
+            try { data = await response.json(); }
+            catch (e) { throw new Error("Server returned an invalid response"); }
 
+            if (!response.ok) throw new Error(data.error || "Detection failed");
 
-            try {
+            handleDetection(data);
+            showToast("Detection completed", "success");
 
-                data =
-                    await response.json();
-
-            } catch (error) {
-
-                throw new Error(
-                    "Server returned an invalid response"
-                );
-
-            }
-
-
-            if (
-                !response.ok
-            ) {
-
-                throw new Error(
-                    data.error ||
-                    "Detection failed"
-                );
-
-            }
-
-
-            handleDetection(
-                data
-            );
-
-
-            showNotification(
-                "Detection completed",
-                "success"
-            );
-
-
-        } catch (error) {
-
-            addLog(
-                "error",
-                "Detection error: " +
-                error.message
-            );
-
-
-            showNotification(
-                error.message,
-                "error"
-            );
-
-
+        } catch (err) {
+            addLog("error", "Detection error: " + err.message);
+            showToast(err.message, "error");
         } finally {
-
-            loading.style.display =
-                "none";
-
+            loading.style.display = "none";
         }
-
     }
 
+    /* ================================================================
+     *  DRAG & DROP
+     * ================================================================ */
+    (function setupDragAndDrop() {
+        const area = $("uploadArea");
+        ["dragenter", "dragover"].forEach(ev =>
+            area.addEventListener(ev, e => {
+                e.preventDefault();
+                area.classList.add("drag");
+            })
+        );
+        ["dragleave", "drop"].forEach(ev =>
+            area.addEventListener(ev, e => {
+                e.preventDefault();
+                area.classList.remove("drag");
+            })
+        );
+        area.addEventListener("drop", e => {
+            const file = e.dataTransfer.files?.[0];
+            if (file) processImageFile(file);
+        });
+    })();
 
-    document.getElementById(
-        "deviceIdValue"
-    ).textContent =
-        DEVICE_ID;
+    /* ================================================================
+     *  KEYBOARD SHORTCUTS
+     * ================================================================ */
+    document.addEventListener("keydown", e => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+        if (e.key === "s" || e.key === "S") startStream();
+        if (e.key === "c" || e.key === "C") captureImage();
+    });
 
+    /* ================================================================
+     *  BOOT
+     * ================================================================ */
+    $("deviceIdValue").textContent = DEVICE_ID;
+    $("locationValue").textContent = LOCATION;
+    $("cropTypeValue").textContent = FOCUS;
+    $("headerDevicePill").textContent = DEVICE_ID;
+    $("headerFocusPill").textContent = "Focus: " + FOCUS;
 
-    document.getElementById(
-        "locationValue"
-    ).textContent =
-        LOCATION;
-
-
-    document.getElementById(
-        "cropTypeValue"
-    ).textContent =
-        CROP_TYPE;
-
-
-    addLog(
-        "info",
-        "smartEyes control center starting..."
-    );
-
-
+    addLog("info", "smartEyes control center starting…");
     connectWebSocket();
 
-
-    window.addEventListener(
-        "beforeunload",
-        () => {
-
-            stopHeartbeat();
-
-
-            if (reconnectTimer) {
-
-                clearTimeout(
-                    reconnectTimer
-                );
-
-            }
-
-
-            if (currentVideoUrl) {
-
-                URL.revokeObjectURL(
-                    currentVideoUrl
-                );
-
-            }
-
-
-            if (socket) {
-
-                socket.close();
-
-            }
-
-        }
-    );
-
+    window.addEventListener("beforeunload", () => {
+        stopHeartbeat();
+        stopFpsCounter();
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+        if (socket) socket.close();
+    });
 </script>
 
 </body>

@@ -22,7 +22,7 @@ public class CorsConfig {
                 "http://192.168.*:*",
                 "http://*.ngrok.io",
                 "https://*.ngrok.io",
-                "https://crop-disease-detector-8nqt.onrender.com/:*"
+                "https://smarteye-lme3.onrender.com/:*"
         ));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
