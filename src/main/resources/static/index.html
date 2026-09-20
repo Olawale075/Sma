@@ -999,8 +999,11 @@
             videoStream.style.display = "block";
             videoPlaceholder.style.display = "none";
             videoHud.style.display = "flex";
-            streamActive = true;
-            startPeriodicDetection();
+
+            if (!streamActive) {
+                streamActive = true;
+                startPeriodicDetection();
+            }
         };
         videoStream.onerror = () => {
             addLog("error", "Failed to display camera frame");
