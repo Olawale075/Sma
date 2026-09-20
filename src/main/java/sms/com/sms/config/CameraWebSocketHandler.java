@@ -260,7 +260,27 @@ public class CameraWebSocketHandler
     // ============================================================
     // TEXT MESSAGE
     // ============================================================
+    public void sendDetectionToClients(String detectionJson) {
+        if (detectionJson == null || detectionJson.isBlank()) {
+            return;
+        }
 
+        TextMessage message = new TextMessage(detectionJson);
+
+        sessions.forEach((sessionId, session) -> {
+            try {
+                if (session != null && session.isOpen()) {
+                    session.sendMessage(message);
+                }
+            } catch (IOException e) {
+                logger.warn(
+                        "Failed to send detection to WebSocket session {}: {}",
+                        sessionId,
+                        e.getMessage()
+                );
+            }
+        });
+    }
     @Override
     protected void handleTextMessage(
             WebSocketSession session,
