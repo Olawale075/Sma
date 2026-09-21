@@ -56,7 +56,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
     private static final int SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
 
     /* AI runs every 5 seconds. */
-    private static final int DETECTION_INTERVAL_SECONDS = 5;
+    private static final int DETECTION_INTERVAL_SECONDS = 3600;
 
     private static final long HEARTBEAT_TIMEOUT_MS = 60_000L;
 
