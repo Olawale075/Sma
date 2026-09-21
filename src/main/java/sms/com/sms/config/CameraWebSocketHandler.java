@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,229 +45,95 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
     private static final Logger log =
             LoggerFactory.getLogger(CameraWebSocketHandler.class);
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CONFIGURATION
-     * ============================================================
-     */
+     * ============================================================ */
 
     private static final int MAX_SESSIONS = 100;
 
     private static final int SEND_TIME_LIMIT_MS = 10_000;
 
-    private static final int SEND_BUFFER_SIZE_LIMIT =
-            512 * 1024;
+    private static final int SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
 
-    /*
-     * AI runs once every 5 seconds.
-     */
+    /* AI runs every 5 seconds. */
     private static final int DETECTION_INTERVAL_SECONDS = 5;
 
-    /*
-     * Camera/dashboard must send heartbeat/ping
-     * before this timeout.
-     */
-    private static final long HEARTBEAT_TIMEOUT_MS =
-            30_000L;
+    private static final long HEARTBEAT_TIMEOUT_MS = 60_000L;
 
-    /*
-     * ============================================================
+    /* ============================================================
      * DEPENDENCIES
-     * ============================================================
-     */
+     * ============================================================ */
 
     private final ObjectMapper objectMapper;
 
     private final ObjectDetectionService objectDetectionService;
 
-    /*
-     * ============================================================
-     * CAMERA SESSIONS
-     *
-     * deviceId -> WebSocketSession
-     * ============================================================
-     */
+    /* ============================================================
+     * SESSIONS
+     * ============================================================ */
 
-    private final ConcurrentHashMap<
-            String,
-            WebSocketSession
-            > cameraSessions =
+    private final ConcurrentHashMap<String, WebSocketSession> cameraSessions =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * DASHBOARD SESSIONS
-     *
-     * sessionId -> WebSocketSession
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            WebSocketSession
-            > dashboardSessions =
+    private final ConcurrentHashMap<String, WebSocketSession> dashboardSessions =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * SESSION -> DEVICE
-     *
-     * sessionId -> deviceId
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            String
-            > sessionDeviceIds =
+    private final ConcurrentHashMap<String, String> sessionDeviceIds =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * HEARTBEATS
-     *
-     * sessionId -> last heartbeat timestamp
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            Long
-            > lastHeartbeat =
+    private final ConcurrentHashMap<String, Long> lastHeartbeat =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * LATEST FRAME
-     *
-     * deviceId -> newest JPEG frame
-     *
-     * IMPORTANT:
-     * We intentionally keep ONLY ONE frame per camera.
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            byte[]
-            > latestFrames =
+    private final ConcurrentHashMap<String, byte[]> latestFrames =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * CAMERA METADATA
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            String
-            > deviceLocations =
+    private final ConcurrentHashMap<String, String> deviceLocations =
             new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<
-            String,
-            String
-            > deviceFocus =
+    private final ConcurrentHashMap<String, String> deviceFocus =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * AI RUNNING FLAGS
-     *
-     * Prevents multiple AI jobs for the same camera.
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            AtomicBoolean
-            > detectionRunning =
+    private final ConcurrentHashMap<String, AtomicBoolean> detectionRunning =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * FRAME COUNTERS
-     * ============================================================
-     */
-
-    private final ConcurrentHashMap<
-            String,
-            AtomicLong
-            > frameCounters =
+    private final ConcurrentHashMap<String, AtomicLong> frameCounters =
             new ConcurrentHashMap<>();
 
-    /*
-     * ============================================================
-     * SCHEDULER
-     * ============================================================
-     */
+    /* ============================================================
+     * SCHEDULERS
+     * ============================================================ */
 
     private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(
-                    2,
-                    r -> {
-
-                        Thread thread =
-                                new Thread(r);
-
-                        thread.setName(
-                                "smarteye-scheduler"
-                        );
-
-                        thread.setDaemon(true);
-
-                        return thread;
-                    }
-            );
-
-    /*
-     * ============================================================
-     * AI EXECUTOR
-     * ============================================================
-     */
+            Executors.newScheduledThreadPool(2, r -> {
+                Thread t = new Thread(r);
+                t.setName("smarteye-scheduler");
+                t.setDaemon(true);
+                return t;
+            });
 
     private final ExecutorService detectionExecutor =
-            Executors.newFixedThreadPool(
-                    2,
-                    r -> {
+            Executors.newFixedThreadPool(2, r -> {
+                Thread t = new Thread(r);
+                t.setName("smarteye-ai");
+                t.setDaemon(true);
+                return t;
+            });
 
-                        Thread thread =
-                                new Thread(r);
-
-                        thread.setName(
-                                "smarteye-ai"
-                        );
-
-                        thread.setDaemon(true);
-
-                        return thread;
-                    }
-            );
-
-    /*
-     * ============================================================
+    /* ============================================================
      * CONSTRUCTOR
-     * ============================================================
-     */
+     * ============================================================ */
 
     public CameraWebSocketHandler(
             ObjectMapper objectMapper,
             @Lazy ObjectDetectionService objectDetectionService
     ) {
-
-        this.objectMapper =
-                objectMapper;
-
-        this.objectDetectionService =
-                objectDetectionService;
+        this.objectMapper = objectMapper;
+        this.objectDetectionService = objectDetectionService;
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * START SCHEDULERS
-     * ============================================================
-     */
+     * ============================================================ */
 
     @PostConstruct
     public void start() {
@@ -285,1887 +152,728 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                 TimeUnit.SECONDS
         );
 
-        log.info(
-                "=========================================="
-        );
-
-        log.info(
-                "SmartEye WebSocket Handler Started"
-        );
-
-        log.info(
-                "AI detection interval: {} seconds",
-                DETECTION_INTERVAL_SECONDS
-        );
-
-        log.info(
-                "Heartbeat timeout: {} ms",
-                HEARTBEAT_TIMEOUT_MS
-        );
-
-        log.info(
-                "Maximum sessions: {}",
-                MAX_SESSIONS
-        );
-
-        log.info(
-                "=========================================="
-        );
+        log.info("==========================================");
+        log.info("SmartEye WebSocket Handler Started");
+        log.info("AI detection interval: {} seconds", DETECTION_INTERVAL_SECONDS);
+        log.info("Heartbeat timeout: {} ms",         HEARTBEAT_TIMEOUT_MS);
+        log.info("Maximum sessions: {}",             MAX_SESSIONS);
+        log.info("==========================================");
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CONNECTION ESTABLISHED
-     * ============================================================
-     */
+     * ============================================================ */
 
     @Override
-    public void afterConnectionEstablished(
-            WebSocketSession session
-    ) {
+    public void afterConnectionEstablished(WebSocketSession session) {
 
         if (totalSessions() >= MAX_SESSIONS) {
 
-            log.warn(
-                    "Maximum WebSocket sessions reached. Rejecting {}",
-                    session.getId()
-            );
+            log.warn("Maximum WebSocket sessions reached. Rejecting {}", session.getId());
 
             try {
-
-                session.close(
-                        new CloseStatus(
-                                CloseStatus.SERVICE_OVERLOAD.getCode(),
-                                "Maximum sessions reached"
-                        )
-                );
-
-            } catch (IOException ignored) {
-            }
+                session.close(new CloseStatus(
+                        CloseStatus.SERVICE_OVERLOAD.getCode(),
+                        "Maximum sessions reached"));
+            } catch (IOException ignored) { }
 
             return;
         }
 
         WebSocketSession safeSession =
                 new ConcurrentWebSocketSessionDecorator(
-                        session,
-                        SEND_TIME_LIMIT_MS,
-                        SEND_BUFFER_SIZE_LIMIT
-                );
+                        session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT);
 
-        String sessionId =
-                session.getId();
+        String sessionId = session.getId();
 
-        sessionDeviceIds.put(
-                sessionId,
-                sessionId
-        );
+        sessionDeviceIds.put(sessionId, sessionId);
+        lastHeartbeat.put(sessionId, System.currentTimeMillis());
 
-        lastHeartbeat.put(
-                sessionId,
-                System.currentTimeMillis()
-        );
+        log.info("WebSocket CONNECTED: {}", sessionId);
 
-        log.info(
-                "WebSocket CONNECTED: {}",
-                sessionId
-        );
-
-        sendJson(
-                safeSession,
-                createMessage(
-                        "connected",
-                        "SmartEye WebSocket connected"
-                )
-        );
+        sendJson(safeSession, createMessage(
+                "connected", "SmartEye WebSocket connected"));
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * TEXT MESSAGE
-     * ============================================================
-     */
+     * ============================================================ */
 
     @Override
-    protected void handleTextMessage(
-            WebSocketSession session,
-            TextMessage message
-    ) {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
 
-        String payload =
-                message.getPayload();
+        String payload = message.getPayload();
 
-        if (payload == null ||
-                payload.isBlank()) {
+        if (payload == null || payload.isBlank()) return;
 
-            return;
-        }
-
-        lastHeartbeat.put(
-                session.getId(),
-                System.currentTimeMillis()
-        );
+        lastHeartbeat.put(session.getId(), System.currentTimeMillis());
 
         try {
 
-            JsonNode json =
-                    objectMapper.readTree(payload);
+            JsonNode json = objectMapper.readTree(payload);
 
-            if (json == null ||
-                    !json.has("type")) {
+            if (json == null || !json.has("type")) return;
 
-                return;
-            }
-
-            String type =
-                    json.path("type")
-                            .asText("")
-                            .trim()
-                            .toLowerCase();
+            String type = json.path("type").asText("").trim().toLowerCase();
 
             switch (type) {
 
-                case "register":
-
-                    handleRegister(
-                            session,
-                            json
-                    );
-
-                    break;
-
+                case "register":       handleRegister(session, json);        break;
                 case "heartbeat":
-
-                case "ping":
-
-                    handleHeartbeat(
-                            session
-                    );
-
-                    break;
-
-                case "start_stream":
-
-                    handleStartStream(
-                            session,
-                            json
-                    );
-
-                    break;
-
-                case "stop_stream":
-
-                    handleStopStream(
-                            session,
-                            json
-                    );
-
-                    break;
-
-                case "capture":
-
-                    handleCapture(
-                            session,
-                            json
-                    );
-
-                    break;
-
-                case "status":
-
-                    sendStatus(
-                            session
-                    );
-
-                    break;
-
-                case "get_sensor":
-
-                    handleGetSensor(
-                            session,
-                            json
-                    );
-
-                    break;
-
-                case "sensor_data":
-
-                    handleSensorData(
-                            session,
-                            json
-                    );
-
-                    break;
-
+                case "ping":           handleHeartbeat(session);             break;
+                case "start_stream":   handleStartStream(session, json);     break;
+                case "stop_stream":    handleStopStream(session, json);      break;
+                case "capture":        handleCapture(session, json);         break;
+                case "status":         sendStatus(session);                  break;
+                case "get_sensor":     handleGetSensor(session, json);       break;
+                case "sensor_data":    handleSensorData(session, json);      break;
                 case "flash_on":
-
                 case "flash_off":
-
                 case "set_resolution":
-
-                case "reboot":
-
-                    forwardCameraCommand(
-                            session,
-                            json
-                    );
-
-                    break;
+                case "reboot":         forwardCameraCommand(session, json);  break;
 
                 default:
-
-                    log.debug(
-                            "Unknown WebSocket message type: {}",
-                            type
-                    );
-
-                    sendError(
-                            session,
-                            "Unknown message type: " + type
-                    );
+                    log.debug("Unknown WebSocket message type: {}", type);
+                    sendError(session, "Unknown message type: " + type);
             }
 
         } catch (Exception e) {
-
-            log.error(
-                    "Failed to process WebSocket message",
-                    e
-            );
-
-            sendError(
-                    session,
-                    "Invalid WebSocket message"
-            );
+            log.error("Failed to process WebSocket message", e);
+            sendError(session, "Invalid WebSocket message");
         }
     }
 
-    /*
-     * ============================================================
-     * BINARY MESSAGE
-     *
-     * Camera sends JPEG frames here.
-     * ============================================================
-     */
+    /* ============================================================
+     * BINARY MESSAGE (camera JPEG frames)
+     * ============================================================ */
 
     @Override
-    protected void handleBinaryMessage(
-            WebSocketSession session,
-            BinaryMessage message
-    ) {
+    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
 
-        if (!session.isOpen()) {
-            return;
-        }
+        if (!session.isOpen()) return;
 
-        byte[] frame =
-                extractBytes(message);
+        byte[] frame = extractBytes(message);
+        if (frame.length == 0) return;
 
-        if (frame.length == 0) {
-            return;
-        }
-
-        String deviceId =
-                getDeviceId(session);
-
-        /*
-         * Only registered cameras may send frames.
-         */
+        String deviceId = getDeviceId(session);
 
         if (!cameraSessions.containsKey(deviceId)) {
-
-            log.warn(
-                    "Binary frame received from unknown camera. session={}",
-                    session.getId()
-            );
-
+            log.warn("Binary frame from unknown camera. session={}", session.getId());
             return;
         }
 
-        /*
-         * Count frame.
-         */
-
         frameCounters
-                .computeIfAbsent(
-                        deviceId,
-                        key -> new AtomicLong()
-                )
+                .computeIfAbsent(deviceId, k -> new AtomicLong())
                 .incrementAndGet();
 
-        /*
-         * ========================================================
-         * IMPORTANT
-         *
-         * Replace the old frame.
-         *
-         * DO NOT queue frames.
-         * ========================================================
-         */
+        latestFrames.put(deviceId, frame);
 
-        latestFrames.put(
-                deviceId,
-                frame
-        );
-
-        /*
-         * Immediately send the frame to dashboards.
-         */
-
-        broadcastFrame(
-                frame
-        );
+        broadcastFrame(frame);
     }
 
-    /*
-     * ============================================================
-     * CAMERA REGISTRATION
-     * ============================================================
-     */
+    /* ============================================================
+     * REGISTRATION
+     * ============================================================ */
 
-    private void handleRegister(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void handleRegister(WebSocketSession session, JsonNode json) {
 
-        String deviceId =
-                firstNonBlank(
-                        json.path("deviceId")
-                                .asText(null),
+        String deviceId = firstNonBlank(
+                json.path("deviceId").asText(null),
+                json.path("device_id").asText(null),
+                session.getId()
+        );
 
-                        json.path("device_id")
-                                .asText(null),
+        String deviceType = json.path("deviceType").asText("").trim();
 
-                        session.getId()
-                );
+        String location = firstNonBlank(
+                json.path("location").asText(null), "Unknown");
 
-        String deviceType =
-                json.path("deviceType")
-                        .asText("")
-                        .trim();
-
-        String location =
-                firstNonBlank(
-                        json.path("location")
-                                .asText(null),
-
-                        "Unknown"
-                );
-
-        String focus =
-                firstNonBlank(
-                        json.path("focus")
-                                .asText(null),
-
-                        json.path("cropType")
-                                .asText(null),
-
-                        "General"
-                );
+        String focus = firstNonBlank(
+                json.path("focus").asText(null),
+                json.path("cropType").asText(null),
+                "General"
+        );
 
         boolean isCamera =
-                deviceType.equalsIgnoreCase(
-                        "ESP32-CAM"
-                )
-                        ||
-                        deviceType.equalsIgnoreCase(
-                                "ESP32_CAM"
-                        )
-                        ||
-                        deviceType
-                                .toLowerCase()
-                                .contains("camera");
+                deviceType.equalsIgnoreCase("ESP32-CAM") ||
+                        deviceType.equalsIgnoreCase("ESP32_CAM") ||
+                        deviceType.toLowerCase().contains("camera");
 
-        /*
-         * Save session/device relationship.
-         */
+        sessionDeviceIds.put(session.getId(), deviceId);
+        lastHeartbeat.put(session.getId(), System.currentTimeMillis());
 
-        sessionDeviceIds.put(
-                session.getId(),
-                deviceId
-        );
-
-        lastHeartbeat.put(
-                session.getId(),
-                System.currentTimeMillis()
-        );
-
-        /*
-         * ========================================================
-         * CAMERA
-         * ========================================================
-         */
+        /* ---------- CAMERA ---------- */
 
         if (isCamera) {
 
-            WebSocketSession oldSession =
-                    cameraSessions.put(
-                            deviceId,
-                            new ConcurrentWebSocketSessionDecorator(
-                                    session,
-                                    SEND_TIME_LIMIT_MS,
-                                    SEND_BUFFER_SIZE_LIMIT
-                            )
-                    );
-
-            /*
-             * If the same device reconnects,
-             * close the previous connection.
-             */
+            WebSocketSession oldSession = cameraSessions.put(
+                    deviceId,
+                    new ConcurrentWebSocketSessionDecorator(
+                            session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT)
+            );
 
             if (oldSession != null &&
                     oldSession.isOpen() &&
-                    !oldSession.getId()
-                            .equals(session.getId())) {
+                    !oldSession.getId().equals(session.getId())) {
 
                 try {
-
-                    oldSession.close(
-                            new CloseStatus(
-                                    CloseStatus.NORMAL.getCode(),
-                                    "Replaced by new connection"
-                            )
-                    );
-
-                } catch (IOException ignored) {
-                }
+                    oldSession.close(new CloseStatus(
+                            CloseStatus.NORMAL.getCode(),
+                            "Replaced by new connection"));
+                } catch (IOException ignored) { }
             }
 
-            deviceLocations.put(
-                    deviceId,
-                    location
-            );
+            deviceLocations.put(deviceId, location);
+            deviceFocus.put(deviceId, focus);
 
-            deviceFocus.put(
-                    deviceId,
-                    focus
-            );
+            detectionRunning.computeIfAbsent(deviceId, k -> new AtomicBoolean(false));
+            frameCounters.computeIfAbsent(deviceId, k -> new AtomicLong());
 
-            detectionRunning.computeIfAbsent(
-                    deviceId,
-                    key -> new AtomicBoolean(false)
-            );
+            log.info("==========================================");
+            log.info("CAMERA REGISTERED");
+            log.info("Device: {}",   deviceId);
+            log.info("Type: {}",     deviceType);
+            log.info("Location: {}", location);
+            log.info("Focus: {}",    focus);
+            log.info("==========================================");
 
-            frameCounters.computeIfAbsent(
-                    deviceId,
-                    key -> new AtomicLong()
-            );
+            ObjectNode response = objectMapper.createObjectNode();
+            response.put("type",      "registration_success");
+            response.put("deviceId",  deviceId);
+            response.put("role",      "camera");
+            response.put("location",  location);
+            response.put("focus",     focus);
+            response.put("message",   "Camera registered successfully");
+            response.put("timestamp", Instant.now().toString());
 
-            log.info(
-                    "=========================================="
-            );
-
-            log.info(
-                    "CAMERA REGISTERED"
-            );
-
-            log.info(
-                    "Device: {}",
-                    deviceId
-            );
-
-            log.info(
-                    "Type: {}",
-                    deviceType
-            );
-
-            log.info(
-                    "Location: {}",
-                    location
-            );
-
-            log.info(
-                    "Focus: {}",
-                    focus
-            );
-
-            log.info(
-                    "=========================================="
-            );
-
-            ObjectNode response =
-                    objectMapper.createObjectNode();
-
-            response.put(
-                    "type",
-                    "registration_success"
-            );
-
-            response.put(
-                    "deviceId",
-                    deviceId
-            );
-
-            response.put(
-                    "role",
-                    "camera"
-            );
-
-            response.put(
-                    "location",
-                    location
-            );
-
-            response.put(
-                    "focus",
-                    focus
-            );
-
-            response.put(
-                    "message",
-                    "Camera registered successfully"
-            );
-
-            response.put(
-                    "timestamp",
-                    Instant.now().toString()
-            );
-
-            sendJson(
-                    session,
-                    response
-            );
-
+            sendJson(session, response);
             return;
         }
 
-        /*
-         * ========================================================
-         * DASHBOARD
-         * ========================================================
-         */
+        /* ---------- DASHBOARD ---------- */
 
         WebSocketSession safeDashboard =
                 new ConcurrentWebSocketSessionDecorator(
-                        session,
-                        SEND_TIME_LIMIT_MS,
-                        SEND_BUFFER_SIZE_LIMIT
-                );
+                        session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT);
 
-        dashboardSessions.put(
-                session.getId(),
-                safeDashboard
-        );
+        dashboardSessions.put(session.getId(), safeDashboard);
 
-        log.info(
-                "Dashboard registered: {}",
-                session.getId()
-        );
+        log.info("Dashboard registered: {}", session.getId());
 
-        ObjectNode response =
-                objectMapper.createObjectNode();
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type",      "registration_success");
+        response.put("role",      "dashboard");
+        response.put("message",   "Dashboard connected");
+        response.put("timestamp", Instant.now().toString());
 
-        response.put(
-                "type",
-                "registration_success"
-        );
-
-        response.put(
-                "role",
-                "dashboard"
-        );
-
-        response.put(
-                "message",
-                "Dashboard connected"
-        );
-
-        response.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
-        sendJson(
-                safeDashboard,
-                response
-        );
-
-        sendCurrentStatus(
-                safeDashboard
-        );
+        sendJson(safeDashboard, response);
+        sendCurrentStatus(safeDashboard);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * HEARTBEAT
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void handleHeartbeat(
-            WebSocketSession session
-    ) {
+    private void handleHeartbeat(WebSocketSession session) {
 
-        lastHeartbeat.put(
-                session.getId(),
-                System.currentTimeMillis()
-        );
+        lastHeartbeat.put(session.getId(), System.currentTimeMillis());
 
-        ObjectNode response =
-                objectMapper.createObjectNode();
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type",      "pong");
+        response.put("timestamp", Instant.now().toString());
 
-        response.put(
-                "type",
-                "pong"
-        );
-
-        response.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
-        sendJson(
-                session,
-                response
-        );
+        sendJson(session, response);
     }
 
-    /*
-     * ============================================================
-     * START STREAM
-     * ============================================================
-     */
+    /* ============================================================
+     * START / STOP STREAM
+     * ============================================================ */
 
-    private void handleStartStream(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void handleStartStream(WebSocketSession session, JsonNode json) {
 
-        String requestedDevice =
-                getRequestedDevice(
-                        session,
-                        json
-                );
-
-        if (requestedDevice == null ||
-                requestedDevice.isBlank()) {
-
-            sendError(
-                    session,
-                    "deviceId is required"
-            );
-
+        String requestedDevice = getRequestedDevice(session, json);
+        if (requestedDevice == null || requestedDevice.isBlank()) {
+            sendError(session, "deviceId is required");
             return;
         }
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        requestedDevice
-                );
-
-        if (camera == null ||
-                !camera.isOpen()) {
-
-            sendError(
-                    session,
-                    "Camera is not connected: "
-                            + requestedDevice
-            );
-
+        WebSocketSession camera = cameraSessions.get(requestedDevice);
+        if (camera == null || !camera.isOpen()) {
+            sendError(session, "Camera is not connected: " + requestedDevice);
             return;
         }
 
-        ObjectNode command =
-                objectMapper.createObjectNode();
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type",     "start_stream");
+        command.put("device_id", requestedDevice);
+        command.put("deviceId",  requestedDevice);
 
-        command.put(
-                "type",
-                "start_stream"
-        );
+        sendJson(camera, command);
 
-        command.put(
-                "device_id",
-                requestedDevice
-        );
-
-        command.put(
-                "deviceId",
-                requestedDevice
-        );
-
-        sendJson(
-                camera,
-                command
-        );
-
-        sendJson(
-                session,
-                createMessage(
-                        "stream_started",
-                        "Stream start command sent"
-                )
-        );
+        sendJson(session, createMessage("stream_started", "Stream start command sent"));
     }
 
-    /*
-     * ============================================================
-     * STOP STREAM
-     * ============================================================
-     */
+    private void handleStopStream(WebSocketSession session, JsonNode json) {
 
-    private void handleStopStream(
-            WebSocketSession session,
-            JsonNode json
-    ) {
-
-        String requestedDevice =
-                getRequestedDevice(
-                        session,
-                        json
-                );
-
-        if (requestedDevice == null ||
-                requestedDevice.isBlank()) {
-
-            sendError(
-                    session,
-                    "deviceId is required"
-            );
-
+        String requestedDevice = getRequestedDevice(session, json);
+        if (requestedDevice == null || requestedDevice.isBlank()) {
+            sendError(session, "deviceId is required");
             return;
         }
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        requestedDevice
-                );
-
-        if (camera == null ||
-                !camera.isOpen()) {
-
-            sendError(
-                    session,
-                    "Camera is not connected: "
-                            + requestedDevice
-            );
-
+        WebSocketSession camera = cameraSessions.get(requestedDevice);
+        if (camera == null || !camera.isOpen()) {
+            sendError(session, "Camera is not connected: " + requestedDevice);
             return;
         }
 
-        ObjectNode command =
-                objectMapper.createObjectNode();
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type",     "stop_stream");
+        command.put("device_id", requestedDevice);
+        command.put("deviceId",  requestedDevice);
 
-        command.put(
-                "type",
-                "stop_stream"
-        );
+        sendJson(camera, command);
 
-        command.put(
-                "device_id",
-                requestedDevice
-        );
-
-        command.put(
-                "deviceId",
-                requestedDevice
-        );
-
-        sendJson(
-                camera,
-                command
-        );
-
-        sendJson(
-                session,
-                createMessage(
-                        "stream_stopped",
-                        "Stream stop command sent"
-                )
-        );
+        sendJson(session, createMessage("stream_stopped", "Stream stop command sent"));
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CAPTURE
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void handleCapture(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void handleCapture(WebSocketSession session, JsonNode json) {
 
-        String requestedDevice =
-                getRequestedDevice(
-                        session,
-                        json
-                );
-
-        if (requestedDevice == null ||
-                requestedDevice.isBlank()) {
-
-            sendError(
-                    session,
-                    "deviceId is required"
-            );
-
+        String requestedDevice = getRequestedDevice(session, json);
+        if (requestedDevice == null || requestedDevice.isBlank()) {
+            sendError(session, "deviceId is required");
             return;
         }
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        requestedDevice
-                );
-
-        if (camera == null ||
-                !camera.isOpen()) {
-
-            sendError(
-                    session,
-                    "Camera is not connected: "
-                            + requestedDevice
-            );
-
+        WebSocketSession camera = cameraSessions.get(requestedDevice);
+        if (camera == null || !camera.isOpen()) {
+            sendError(session, "Camera is not connected: " + requestedDevice);
             return;
         }
 
-        ObjectNode command =
-                objectMapper.createObjectNode();
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type",     "capture");
+        command.put("device_id", requestedDevice);
+        command.put("deviceId",  requestedDevice);
 
-        command.put(
-                "type",
-                "capture"
-        );
+        sendJson(camera, command);
 
-        command.put(
-                "device_id",
-                requestedDevice
-        );
-
-        command.put(
-                "deviceId",
-                requestedDevice
-        );
-
-        sendJson(
-                camera,
-                command
-        );
-
-        sendJson(
-                session,
-                createMessage(
-                        "capture_requested",
-                        "Capture command sent"
-                )
-        );
+        sendJson(session, createMessage("capture_requested", "Capture command sent"));
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * SENSOR DATA
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void handleSensorData(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void handleSensorData(WebSocketSession session, JsonNode json) {
 
-        String deviceId =
-                getDeviceId(session);
+        String deviceId = getDeviceId(session);
 
-        ObjectNode sensor =
-                objectMapper.createObjectNode();
+        ObjectNode sensor = objectMapper.createObjectNode();
+        sensor.put("type",     "sensor_data");
+        sensor.put("deviceId", deviceId);
 
-        sensor.put(
-                "type",
-                "sensor_data"
-        );
+        if (json.has("temperature")) sensor.put("temperature", json.path("temperature").asDouble());
+        if (json.has("humidity"))    sensor.put("humidity",    json.path("humidity").asDouble());
+        if (json.has("soil"))        sensor.put("soil",        json.path("soil").asDouble());
+        if (json.has("soilMoisture"))sensor.put("soilMoisture",json.path("soilMoisture").asDouble());
+        if (json.has("gas"))         sensor.put("gas",         json.path("gas").asDouble());
+        if (json.has("co2"))         sensor.put("co2",         json.path("co2").asDouble());
 
-        sensor.put(
-                "deviceId",
-                deviceId
-        );
+        String focus = firstNonBlank(
+                json.path("focus").asText(null),
+                deviceFocus.getOrDefault(deviceId, "General"));
 
-        if (json.has("temperature")) {
+        sensor.put("focus",    focus);
+        sensor.put("location", deviceLocations.getOrDefault(deviceId, "Unknown"));
+        sensor.put("timestamp", Instant.now().toString());
 
-            sensor.put(
-                    "temperature",
-                    json.path("temperature")
-                            .asDouble()
-            );
-        }
-
-        if (json.has("humidity")) {
-
-            sensor.put(
-                    "humidity",
-                    json.path("humidity")
-                            .asDouble()
-            );
-        }
-
-        if (json.has("soil")) {
-
-            sensor.put(
-                    "soil",
-                    json.path("soil")
-                            .asDouble()
-            );
-        }
-
-        if (json.has("soilMoisture")) {
-
-            sensor.put(
-                    "soilMoisture",
-                    json.path("soilMoisture")
-                            .asDouble()
-            );
-        }
-
-        if (json.has("gas")) {
-
-            sensor.put(
-                    "gas",
-                    json.path("gas")
-                            .asDouble()
-            );
-        }
-
-        if (json.has("co2")) {
-
-            sensor.put(
-                    "co2",
-                    json.path("co2")
-                            .asDouble()
-            );
-        }
-
-        String focus =
-                firstNonBlank(
-                        json.path("focus")
-                                .asText(null),
-
-                        deviceFocus.getOrDefault(
-                                deviceId,
-                                "General"
-                        )
-                );
-
-        sensor.put(
-                "focus",
-                focus
-        );
-
-        sensor.put(
-                "location",
-                deviceLocations.getOrDefault(
-                        deviceId,
-                        "Unknown"
-                )
-        );
-
-        sensor.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
-        broadcastJson(
-                sensor
-        );
+        broadcastJson(sensor);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * GET SENSOR
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void handleGetSensor(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void handleGetSensor(WebSocketSession session, JsonNode json) {
 
-        String requestedDevice =
-                getRequestedDevice(
-                        session,
-                        json
-                );
+        String requestedDevice = getRequestedDevice(session, json);
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        requestedDevice
-                );
-
-        if (camera == null ||
-                !camera.isOpen()) {
-
-            sendError(
-                    session,
-                    "Camera is not connected: "
-                            + requestedDevice
-            );
-
+        if (requestedDevice == null || requestedDevice.isBlank()) {
+            sendError(session, "deviceId is required");
             return;
         }
 
-        ObjectNode command =
-                objectMapper.createObjectNode();
+        WebSocketSession camera = cameraSessions.get(requestedDevice);
 
-        command.put(
-                "type",
-                "get_sensor"
-        );
+        if (camera == null || !camera.isOpen()) {
+            sendError(session, "Camera is not connected: " + requestedDevice);
+            return;
+        }
 
-        command.put(
-                "device_id",
-                requestedDevice
-        );
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type",      "get_sensor");
+        command.put("device_id", requestedDevice);
+        command.put("deviceId",  requestedDevice);
 
-        command.put(
-                "deviceId",
-                requestedDevice
-        );
-
-        sendJson(
-                camera,
-                command
-        );
+        sendJson(camera, command);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * FORWARD CAMERA COMMAND
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void forwardCameraCommand(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+    private void forwardCameraCommand(WebSocketSession session, JsonNode json) {
 
-        String requestedDevice =
-                getRequestedDevice(
-                        session,
-                        json
-                );
+        String requestedDevice = getRequestedDevice(session, json);
 
-        if (requestedDevice == null ||
-                requestedDevice.isBlank()) {
-
-            sendError(
-                    session,
-                    "deviceId is required"
-            );
-
+        if (requestedDevice == null || requestedDevice.isBlank()) {
+            sendError(session, "deviceId is required");
             return;
         }
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        requestedDevice
-                );
+        WebSocketSession camera = cameraSessions.get(requestedDevice);
 
-        if (camera == null ||
-                !camera.isOpen()) {
-
-            sendError(
-                    session,
-                    "Camera is not connected: "
-                            + requestedDevice
-            );
-
+        if (camera == null || !camera.isOpen()) {
+            sendError(session, "Camera is not connected: " + requestedDevice);
             return;
         }
 
-        ObjectNode command =
-                json.deepCopy();
+        ObjectNode command = json.deepCopy();
+        command.put("device_id", requestedDevice);
+        command.put("deviceId",  requestedDevice);
 
-        command.put(
-                "device_id",
-                requestedDevice
-        );
-
-        command.put(
-                "deviceId",
-                requestedDevice
-        );
-
-        sendJson(
-                camera,
-                command
-        );
+        sendJson(camera, command);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * BROADCAST FRAME
-     *
-     * Frame is immediately sent to all dashboards.
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void broadcastFrame(
-            byte[] frame
-    ) {
+    private void broadcastFrame(byte[] frame) {
 
-        if (dashboardSessions.isEmpty()) {
-            return;
-        }
+        if (dashboardSessions.isEmpty()) return;
 
-        List<String> deadSessions =
-                new ArrayList<>();
+        List<String> deadSessions = new ArrayList<>();
 
-        for (Map.Entry<
-                String,
-                WebSocketSession
-                > entry :
-                dashboardSessions.entrySet()) {
+        for (Map.Entry<String, WebSocketSession> entry : dashboardSessions.entrySet()) {
 
-            String sessionId =
-                    entry.getKey();
+            String sessionId = entry.getKey();
+            WebSocketSession dashboard = entry.getValue();
 
-            WebSocketSession dashboard =
-                    entry.getValue();
-
-            if (dashboard == null ||
-                    !dashboard.isOpen()) {
-
-                deadSessions.add(
-                        sessionId
-                );
-
+            if (dashboard == null || !dashboard.isOpen()) {
+                deadSessions.add(sessionId);
                 continue;
             }
 
             try {
-
-                BinaryMessage message =
-                        new BinaryMessage(
-                                ByteBuffer.wrap(frame)
-                        );
-
-                dashboard.sendMessage(
-                        message
-                );
-
+                dashboard.sendMessage(new BinaryMessage(ByteBuffer.wrap(frame)));
             } catch (Exception e) {
-
-                log.debug(
-                        "Failed to send frame to dashboard {}",
-                        dashboard.getId()
-                );
-
-                deadSessions.add(
-                        sessionId
-                );
+                log.debug("Failed to send frame to dashboard {}", dashboard.getId());
+                deadSessions.add(sessionId);
             }
         }
 
-        for (String sessionId :
-                deadSessions) {
-
-            removeSession(
-                    sessionId
-            );
-        }
+        for (String id : deadSessions) removeSession(id);
     }
 
-    /*
-     * ============================================================
-     * SEND DETECTION TO DASHBOARDS
-     * ============================================================
-     */
+    /* ============================================================
+     * DETECTION BROADCAST (called by ObjectDetectionService)
+     * ============================================================ */
 
-    public void sendDetectionToClients(
-            String detectionJson
-    ) {
+    public void sendDetectionToClients(String detectionJson) {
 
-        if (detectionJson == null ||
-                detectionJson.isBlank()) {
+        if (detectionJson == null || detectionJson.isBlank()) return;
 
-            return;
-        }
+        TextMessage message = new TextMessage(detectionJson);
 
-        TextMessage message =
-                new TextMessage(
-                        detectionJson
-                );
+        List<String> deadSessions = new ArrayList<>();
 
-        List<String> deadSessions =
-                new ArrayList<>();
+        for (Map.Entry<String, WebSocketSession> entry : dashboardSessions.entrySet()) {
 
-        for (Map.Entry<
-                String,
-                WebSocketSession
-                > entry :
-                dashboardSessions.entrySet()) {
+            String sessionId = entry.getKey();
+            WebSocketSession dashboard = entry.getValue();
 
-            String sessionId =
-                    entry.getKey();
-
-            WebSocketSession dashboard =
-                    entry.getValue();
-
-            if (dashboard == null ||
-                    !dashboard.isOpen()) {
-
-                deadSessions.add(
-                        sessionId
-                );
-
+            if (dashboard == null || !dashboard.isOpen()) {
+                deadSessions.add(sessionId);
                 continue;
             }
 
             try {
-
-                dashboard.sendMessage(
-                        message
-                );
-
+                dashboard.sendMessage(message);
             } catch (Exception e) {
-
-                log.debug(
-                        "Failed to send detection to dashboard {}",
-                        dashboard.getId()
-                );
-
-                deadSessions.add(
-                        sessionId
-                );
+                log.debug("Failed to send detection to dashboard {}", dashboard.getId());
+                deadSessions.add(sessionId);
             }
         }
 
-        for (String sessionId :
-                deadSessions) {
-
-            removeSession(
-                    sessionId
-            );
-        }
+        for (String id : deadSessions) removeSession(id);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * BROADCAST JSON
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void broadcastJson(
-            JsonNode json
-    ) {
+    private void broadcastJson(JsonNode json) {
 
         String payload;
-
         try {
-
-            payload =
-                    objectMapper.writeValueAsString(
-                            json
-                    );
-
+            payload = objectMapper.writeValueAsString(json);
         } catch (Exception e) {
-
-            log.error(
-                    "Failed to serialize WebSocket JSON",
-                    e
-            );
-
+            log.error("Failed to serialize WebSocket JSON", e);
             return;
         }
 
-        TextMessage message =
-                new TextMessage(
-                        payload
-                );
+        TextMessage message = new TextMessage(payload);
 
-        List<String> deadSessions =
-                new ArrayList<>();
+        List<String> deadSessions = new ArrayList<>();
 
-        for (Map.Entry<
-                String,
-                WebSocketSession
-                > entry :
-                dashboardSessions.entrySet()) {
+        for (Map.Entry<String, WebSocketSession> entry : dashboardSessions.entrySet()) {
 
-            String sessionId =
-                    entry.getKey();
+            String sessionId = entry.getKey();
+            WebSocketSession dashboard = entry.getValue();
 
-            WebSocketSession dashboard =
-                    entry.getValue();
-
-            if (dashboard == null ||
-                    !dashboard.isOpen()) {
-
-                deadSessions.add(
-                        sessionId
-                );
-
+            if (dashboard == null || !dashboard.isOpen()) {
+                deadSessions.add(sessionId);
                 continue;
             }
 
             try {
-
-                dashboard.sendMessage(
-                        message
-                );
-
+                dashboard.sendMessage(message);
             } catch (Exception e) {
-
-                deadSessions.add(
-                        sessionId
-                );
+                deadSessions.add(sessionId);
             }
         }
 
-        for (String sessionId :
-                deadSessions) {
-
-            removeSession(
-                    sessionId
-            );
-        }
+        for (String id : deadSessions) removeSession(id);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * AI DETECTION CYCLE
-     * ============================================================
-     */
+     * ============================================================ */
 
     private void runDetectionCycle() {
 
-        if (latestFrames.isEmpty()) {
-            return;
-        }
+        if (latestFrames.isEmpty()) return;
 
-        for (String deviceId :
-                new ArrayList<>(
-                        latestFrames.keySet()
-                )) {
+        for (String deviceId : new ArrayList<>(latestFrames.keySet())) {
 
-            byte[] frame =
-                    latestFrames.get(
-                            deviceId
-                    );
+            byte[] frame = latestFrames.get(deviceId);
+            if (frame == null || frame.length == 0) continue;
 
-            if (frame == null ||
-                    frame.length == 0) {
+            AtomicBoolean running = detectionRunning.computeIfAbsent(
+                    deviceId, k -> new AtomicBoolean(false));
 
-                continue;
-            }
+            if (!running.compareAndSet(false, true)) continue;
 
-            AtomicBoolean running =
-                    detectionRunning.computeIfAbsent(
-                            deviceId,
-                            key ->
-                                    new AtomicBoolean(false)
-                    );
+            String location = deviceLocations.getOrDefault(deviceId, "Unknown");
+            String focus    = deviceFocus.getOrDefault(deviceId, "General");
 
-            /*
-             * Do not start another AI job
-             * while the previous job is running.
-             */
+            byte[] frameForAI = frame.clone();
 
-            if (!running.compareAndSet(
-                    false,
-                    true
-            )) {
+            detectionExecutor.submit(() -> {
+                try {
+                    log.debug("AI detection started: device={}, bytes={}",
+                            deviceId, frameForAI.length);
 
-                continue;
-            }
+                    objectDetectionService.processAndSendDetection(
+                            frameForAI, deviceId, location, focus);
 
-            String location =
-                    deviceLocations.getOrDefault(
-                            deviceId,
-                            "Unknown"
-                    );
-
-            String focus =
-                    deviceFocus.getOrDefault(
-                            deviceId,
-                            "General"
-                    );
-
-            /*
-             * Copy the current frame.
-             */
-
-            byte[] frameForAI =
-                    frame.clone();
-
-            detectionExecutor.submit(
-                    () -> {
-
-                        try {
-
-                            log.debug(
-                                    "AI detection started: device={}, bytes={}",
-                                    deviceId,
-                                    frameForAI.length
-                            );
-
-                            objectDetectionService
-                                    .processAndSendDetection(
-                                            frameForAI,
-                                            deviceId,
-                                            location,
-                                            focus
-                                    );
-
-                        } catch (Exception e) {
-
-                            log.error(
-                                    "AI detection failed for device {}",
-                                    deviceId,
-                                    e
-                            );
-
-                        } finally {
-
-                            running.set(false);
-                        }
-                    }
-            );
+                } catch (Exception e) {
+                    log.error("AI detection failed for device {}", deviceId, e);
+                } finally {
+                    running.set(false);
+                }
+            });
         }
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CURRENT CAMERA STATUS
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void sendCurrentStatus(
-            WebSocketSession session
-    ) {
+    private void sendCurrentStatus(WebSocketSession session) {
 
-        ObjectNode status =
-                objectMapper.createObjectNode();
+        ObjectNode status = objectMapper.createObjectNode();
+        status.put("type", "camera_status");
+        status.put("timestamp", Instant.now().toString());
 
-        status.put(
-                "type",
-                "camera_status"
-        );
+        ArrayNode cameras = objectMapper.createArrayNode();
 
-        status.put(
-                "timestamp",
-                Instant.now().toString()
-        );
+        for (String deviceId : cameraSessions.keySet()) {
 
-        ArrayNode cameras =
-                objectMapper.createArrayNode();
+            ObjectNode camera = objectMapper.createObjectNode();
+            camera.put("deviceId",  deviceId);
+            camera.put("location",  deviceLocations.getOrDefault(deviceId, "Unknown"));
+            camera.put("focus",     deviceFocus.getOrDefault(deviceId, "General"));
+            camera.put("connected", isCameraConnected(deviceId));
+            camera.put("frames",    frameCounters
+                    .getOrDefault(deviceId, new AtomicLong(0)).get());
+            camera.put("hasLatestFrame", latestFrames.containsKey(deviceId));
 
-        for (String deviceId :
-                cameraSessions.keySet()) {
-
-            ObjectNode camera =
-                    objectMapper.createObjectNode();
-
-            camera.put(
-                    "deviceId",
-                    deviceId
-            );
-
-            camera.put(
-                    "location",
-                    deviceLocations.getOrDefault(
-                            deviceId,
-                            "Unknown"
-                    )
-            );
-
-            camera.put(
-                    "focus",
-                    deviceFocus.getOrDefault(
-                            deviceId,
-                            "General"
-                    )
-            );
-
-            camera.put(
-                    "connected",
-                    isCameraConnected(
-                            deviceId
-                    )
-            );
-
-            camera.put(
-                    "frames",
-                    frameCounters
-                            .getOrDefault(
-                                    deviceId,
-                                    new AtomicLong(0)
-                            )
-                            .get()
-            );
-
-            camera.put(
-                    "hasLatestFrame",
-                    latestFrames.containsKey(
-                            deviceId
-                    )
-            );
-
-            cameras.add(
-                    camera
-            );
+            cameras.add(camera);
         }
 
-        status.set(
-                "cameras",
-                cameras
-        );
-
-        sendJson(
-                session,
-                status
-        );
+        status.set("cameras", cameras);
+        sendJson(session, status);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * STATUS
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void sendStatus(
-            WebSocketSession session
-    ) {
+    private void sendStatus(WebSocketSession session) {
 
-        ObjectNode status =
-                objectMapper.createObjectNode();
+        ObjectNode status = objectMapper.createObjectNode();
+        status.put("type",               "status");
+        status.put("cameraSessions",     cameraSessions.size());
+        status.put("dashboardSessions",  dashboardSessions.size());
+        status.put("latestFrames",       latestFrames.size());
 
-        status.put(
-                "type",
-                "status"
-        );
+        int active = 0;
+        if (detectionExecutor instanceof ThreadPoolExecutor) {
+            active = ((ThreadPoolExecutor) detectionExecutor).getActiveCount();
+        }
+        status.put("detectionJobs", active);
+        status.put("timestamp", Instant.now().toString());
 
-        status.put(
-                "cameraSessions",
-                cameraSessions.size()
-        );
-
-        status.put(
-                "dashboardSessions",
-                dashboardSessions.size()
-        );
-
-        status.put(
-                "latestFrames",
-                latestFrames.size()
-        );
-
-        status.put(
-                "detectionJobs",
-                detectionExecutor
-                        instanceof java.util.concurrent.ThreadPoolExecutor
-                        ?
-                        ((java.util.concurrent.ThreadPoolExecutor)
-                         detectionExecutor)
-                        .getActiveCount()
-                        :
-                        0
-        );
-
-        status.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
-        sendJson(
-                session,
-                status
-        );
+        sendJson(session, status);
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CLEAN DEAD SESSIONS
-     * ============================================================
-     */
+     * ============================================================ */
 
     private void cleanupDeadSessions() {
 
-        long now =
-                System.currentTimeMillis();
+        long now = System.currentTimeMillis();
 
-        for (Map.Entry<
-                String,
-                Long
-                > entry :
-                lastHeartbeat.entrySet()) {
+        for (Map.Entry<String, Long> entry : lastHeartbeat.entrySet()) {
 
-            String sessionId =
-                    entry.getKey();
+            String sessionId = entry.getKey();
+            long last = entry.getValue();
 
-            long last =
-                    entry.getValue();
+            if (now - last > HEARTBEAT_TIMEOUT_MS) {
 
-            if (now - last >
-                    HEARTBEAT_TIMEOUT_MS) {
+                WebSocketSession session = findSession(sessionId);
 
-                WebSocketSession session =
-                        findSession(
-                                sessionId
-                        );
-
-                if (session != null &&
-                        session.isOpen()) {
-
+                if (session != null && session.isOpen()) {
                     try {
-
-                        session.close(
-                                new CloseStatus(
-                                        CloseStatus.GOING_AWAY.getCode(),
-                                        "Heartbeat timeout"
-                                )
-                        );
-
-                    } catch (IOException ignored) {
-                    }
+                        session.close(new CloseStatus(
+                                CloseStatus.GOING_AWAY.getCode(),
+                                "Heartbeat timeout"));
+                    } catch (IOException ignored) { }
                 }
 
-                removeSession(
-                        sessionId
-                );
+                removeSession(sessionId);
             }
         }
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * FIND SESSION
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private WebSocketSession findSession(
-            String sessionId
-    ) {
+    private WebSocketSession findSession(String sessionId) {
 
-        WebSocketSession dashboard =
-                dashboardSessions.get(
-                        sessionId
-                );
+        WebSocketSession dashboard = dashboardSessions.get(sessionId);
+        if (dashboard != null) return dashboard;
 
-        if (dashboard != null) {
-
-            return dashboard;
-        }
-
-        for (WebSocketSession camera :
-                cameraSessions.values()) {
-
-            if (camera != null &&
-                    camera.getId()
-                            .equals(sessionId)) {
-
+        for (WebSocketSession camera : cameraSessions.values()) {
+            if (camera != null && camera.getId().equals(sessionId)) {
                 return camera;
             }
         }
-
         return null;
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * CONNECTION CLOSED
-     * ============================================================
-     */
+     * ============================================================ */
 
     @Override
-    public void afterConnectionClosed(
-            WebSocketSession session,
-            CloseStatus status
-    ) {
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
 
-        String deviceId =
-                sessionDeviceIds.get(
-                        session.getId()
-                );
+        String deviceId = sessionDeviceIds.get(session.getId());
 
-        log.info(
-                "WebSocket disconnected: session={}, device={}, status={}",
-                session.getId(),
-                deviceId,
-                status
-        );
+        log.info("WebSocket disconnected: session={}, device={}, status={}",
+                session.getId(), deviceId, status);
 
-        removeSession(
-                session.getId()
-        );
+        removeSession(session.getId());
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * TRANSPORT ERROR
-     * ============================================================
-     */
+     * ============================================================ */
 
     @Override
-    public void handleTransportError(
-            WebSocketSession session,
-            Throwable exception
-    ) {
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
 
-        log.debug(
-                "WebSocket transport error: {}",
-                session.getId(),
-                exception
-        );
-
-        removeSession(
-                session.getId()
-        );
+        log.debug("WebSocket transport error: {}", session.getId(), exception);
+        removeSession(session.getId());
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * REMOVE SESSION
-     * ============================================================
-     */
+     * ============================================================ */
 
-    private void removeSession(
-            String sessionId
-    ) {
+    private void removeSession(String sessionId) {
 
-        dashboardSessions.remove(
-                sessionId
-        );
+        dashboardSessions.remove(sessionId);
 
-        String deviceId =
-                sessionDeviceIds.remove(
-                        sessionId
-                );
+        String deviceId = sessionDeviceIds.remove(sessionId);
+        lastHeartbeat.remove(sessionId);
 
-        lastHeartbeat.remove(
-                sessionId
-        );
+        if (deviceId == null) return;
 
-        if (deviceId == null) {
-            return;
-        }
+        WebSocketSession camera = cameraSessions.get(deviceId);
 
-        WebSocketSession camera =
-                cameraSessions.get(
-                        deviceId
-                );
+        if (camera != null && camera.getId().equals(sessionId)) {
 
-        /*
-         * Only remove the camera if the
-         * disconnected session is actually
-         * the current camera session.
-         */
+            cameraSessions.remove(deviceId);
+            latestFrames.remove(deviceId);
+            detectionRunning.remove(deviceId);
+            frameCounters.remove(deviceId);
+            deviceLocations.remove(deviceId);
+            deviceFocus.remove(deviceId);
 
-        if (camera != null &&
-                camera.getId()
-                        .equals(sessionId)) {
-
-            cameraSessions.remove(
-                    deviceId
-            );
-
-            latestFrames.remove(
-                    deviceId
-            );
-
-            detectionRunning.remove(
-                    deviceId
-            );
-
-            frameCounters.remove(
-                    deviceId
-            );
-
-            deviceLocations.remove(
-                    deviceId
-            );
-
-            deviceFocus.remove(
-                    deviceId
-            );
-
-            log.info(
-                    "Camera removed: {}",
-                    deviceId
-            );
+            log.info("Camera removed: {}", deviceId);
         }
     }
 
-    /*
-     * ============================================================
-     * CAMERA CONNECTED?
-     * ============================================================
-     */
+    /* ============================================================
+     * HELPERS
+     * ============================================================ */
 
-    private boolean isCameraConnected(
-            String deviceId
-    ) {
-
-        WebSocketSession session =
-                cameraSessions.get(
-                        deviceId
-                );
-
-        return session != null &&
-                session.isOpen();
+    private boolean isCameraConnected(String deviceId) {
+        WebSocketSession session = cameraSessions.get(deviceId);
+        return session != null && session.isOpen();
     }
-
-    /*
-     * ============================================================
-     * TOTAL SESSIONS
-     * ============================================================
-     */
 
     private int totalSessions() {
-
-        return cameraSessions.size()
-                +
-                dashboardSessions.size();
+        return cameraSessions.size() + dashboardSessions.size();
     }
 
-    /*
-     * ============================================================
-     * GET DEVICE ID
-     * ============================================================
-     */
-
-    private String getDeviceId(
-            WebSocketSession session
-    ) {
-
-        return sessionDeviceIds.getOrDefault(
-                session.getId(),
-                session.getId()
-        );
+    private String getDeviceId(WebSocketSession session) {
+        return sessionDeviceIds.getOrDefault(session.getId(), session.getId());
     }
 
-    /*
-     * ============================================================
-     * REQUESTED DEVICE
-     * ============================================================
-     */
+    private String getRequestedDevice(WebSocketSession session, JsonNode json) {
 
-    private String getRequestedDevice(
-            WebSocketSession session,
-            JsonNode json
-    ) {
+        String deviceId = firstNonBlank(
+                json.path("deviceId").asText(null),
+                json.path("device_id").asText(null),
+                null);
 
-        String deviceId =
-                firstNonBlank(
-                        json.path("deviceId")
-                                .asText(null),
+        if (deviceId == null || deviceId.isBlank()) {
 
-                        json.path("device_id")
-                                .asText(null),
+            String currentDevice = getDeviceId(session);
 
-                        null
-                );
-
-        /*
-         * If this is a camera itself,
-         * its own device ID can be used.
-         */
-
-        if (deviceId == null ||
-                deviceId.isBlank()) {
-
-            String currentDevice =
-                    getDeviceId(session);
-
-            if (cameraSessions.containsKey(
-                    currentDevice
-            )) {
-
+            if (cameraSessions.containsKey(currentDevice)) {
                 return currentDevice;
             }
         }
@@ -2173,274 +881,97 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
         return deviceId;
     }
 
-    /*
-     * ============================================================
-     * EXTRACT BINARY BYTES
-     * ============================================================
-     */
+    private byte[] extractBytes(BinaryMessage message) {
 
-    private byte[] extractBytes(
-            BinaryMessage message
-    ) {
-
-        ByteBuffer buffer =
-                message.getPayload();
-
-        byte[] bytes =
-                new byte[
-                        buffer.remaining()
-                        ];
-
-        buffer.get(
-                bytes
-        );
-
+        ByteBuffer buffer = message.getPayload();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
         return bytes;
     }
 
-    /*
-     * ============================================================
-     * SEND JSON
-     * ============================================================
-     */
+    private void sendJson(WebSocketSession session, JsonNode json) {
 
-    private void sendJson(
-            WebSocketSession session,
-            JsonNode json
-    ) {
-
-        if (session == null ||
-                !session.isOpen()) {
-
-            return;
-        }
+        if (session == null || !session.isOpen()) return;
 
         try {
-
-            String payload =
-                    objectMapper.writeValueAsString(
-                            json
-                    );
-
-            session.sendMessage(
-                    new TextMessage(
-                            payload
-                    )
-            );
-
+            session.sendMessage(new TextMessage(
+                    objectMapper.writeValueAsString(json)));
         } catch (Exception e) {
-
-            log.debug(
-                    "Unable to send WebSocket message to {}",
-                    session.getId(),
-                    e
-            );
+            log.debug("Unable to send WebSocket message to {}", session.getId(), e);
         }
     }
 
-    /*
-     * ============================================================
-     * SEND ERROR
-     * ============================================================
-     */
+    private void sendError(WebSocketSession session, String message) {
 
-    private void sendError(
-            WebSocketSession session,
-            String message
-    ) {
+        ObjectNode error = objectMapper.createObjectNode();
+        error.put("type",      "error");
+        error.put("message",   message);
+        error.put("timestamp", Instant.now().toString());
 
-        ObjectNode error =
-                objectMapper.createObjectNode();
-
-        error.put(
-                "type",
-                "error"
-        );
-
-        error.put(
-                "message",
-                message
-        );
-
-        error.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
-        sendJson(
-                session,
-                error
-        );
+        sendJson(session, error);
     }
 
-    /*
-     * ============================================================
-     * CREATE MESSAGE
-     * ============================================================
-     */
+    private ObjectNode createMessage(String type, String message) {
 
-    private ObjectNode createMessage(
-            String type,
-            String message
-    ) {
-
-        ObjectNode json =
-                objectMapper.createObjectNode();
-
-        json.put(
-                "type",
-                type
-        );
-
-        json.put(
-                "message",
-                message
-        );
-
-        json.put(
-                "timestamp",
-                Instant.now().toString()
-        );
-
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("type",      type);
+        json.put("message",   message);
+        json.put("timestamp", Instant.now().toString());
         return json;
     }
 
-    /*
-     * ============================================================
-     * FIRST NON-BLANK
-     * ============================================================
-     */
+    private String firstNonBlank(String first, String second, String third) {
 
-    private String firstNonBlank(
-            String first,
-            String second,
-            String third
-    ) {
-
-        if (first != null &&
-                !first.isBlank()) {
-
-            return first;
-        }
-
-        if (second != null &&
-                !second.isBlank()) {
-
-            return second;
-        }
-
-        if (third != null &&
-                !third.isBlank()) {
-
-            return third;
-        }
-
+        if (first  != null && !first.isBlank())  return first;
+        if (second != null && !second.isBlank()) return second;
+        if (third  != null && !third.isBlank())  return third;
         return null;
     }
 
-    private String firstNonBlank(
-            String first,
-            String second
-    ) {
-
-        return firstNonBlank(
-                first,
-                second,
-                null
-        );
+    @SuppressWarnings("unused")
+    private String firstNonBlank(String first, String second) {
+        return firstNonBlank(first, second, null);
     }
-
-    /*
-     * ============================================================
-     * PARTIAL MESSAGES
-     * ============================================================
-     */
 
     @Override
     public boolean supportsPartialMessages() {
-
         return false;
     }
 
-    /*
-     * ============================================================
+    /* ============================================================
      * SHUTDOWN
-     * ============================================================
-     */
+     * ============================================================ */
 
     @PreDestroy
     public void shutdown() {
 
-        log.info(
-                "Shutting down SmartEye WebSocket Handler"
-        );
+        log.info("Shutting down SmartEye WebSocket Handler");
 
         scheduler.shutdownNow();
-
         detectionExecutor.shutdownNow();
 
-        /*
-         * Close camera connections.
-         */
-
-        for (WebSocketSession session :
-                cameraSessions.values()) {
-
+        for (WebSocketSession session : cameraSessions.values()) {
             try {
-
-                if (session != null &&
-                        session.isOpen()) {
-
-                    session.close(
-                            CloseStatus.NORMAL
-                    );
-                }
-
-            } catch (Exception ignored) {
-            }
+                if (session != null && session.isOpen()) session.close(CloseStatus.NORMAL);
+            } catch (Exception ignored) { }
         }
 
-        /*
-         * Close dashboard connections.
-         */
-
-        for (WebSocketSession session :
-                dashboardSessions.values()) {
-
+        for (WebSocketSession session : dashboardSessions.values()) {
             try {
-
-                if (session != null &&
-                        session.isOpen()) {
-
-                    session.close(
-                            CloseStatus.NORMAL
-                    );
-                }
-
-            } catch (Exception ignored) {
-            }
+                if (session != null && session.isOpen()) session.close(CloseStatus.NORMAL);
+            } catch (Exception ignored) { }
         }
 
         cameraSessions.clear();
-
         dashboardSessions.clear();
-
         latestFrames.clear();
-
         sessionDeviceIds.clear();
-
         lastHeartbeat.clear();
-
         deviceLocations.clear();
-
         deviceFocus.clear();
-
         detectionRunning.clear();
-
         frameCounters.clear();
 
-        log.info(
-                "SmartEye WebSocket Handler stopped"
-        );
+        log.info("SmartEye WebSocket Handler stopped");
     }
 }
