@@ -571,6 +571,15 @@
                     <option value="Tomato">Tomato</option>
                 </select>
             </div>
+
+            <div style="margin-top: 14px;">
+                <label class="stat-label" for="detectionIntervalInput" style="display:block; margin-bottom:6px;">Detection interval (ms)</label>
+                <input id="detectionIntervalInput" type="number" min="1000" step="1000" placeholder="60000"
+                       onchange="onDetectionIntervalChange(this.value)" onblur="onDetectionIntervalChange(this.value)"
+                       style="width:100%; background: rgba(255,255,255,0.05); color: var(--text);
+                              border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+                              font-family: inherit; font-size: 13.5px; outline: none;" />
+            </div>
         </div>
     </div>
 
@@ -784,7 +793,8 @@
     let fpsTimer = null;
     let lastFrameBytes = 0;
 
-    const DETECTION_INTERVAL_MS = 10_000; // capture every 10 seconds
+    const DEFAULT_DETECTION_INTERVAL_MS = 60_000;
+    let DETECTION_INTERVAL_MS = Number(localStorage.getItem("detectionIntervalMs")) || DEFAULT_DETECTION_INTERVAL_MS;
     let detectionTimer = null;
 
     const MAX_LOG_LINES = 400;
@@ -1046,6 +1056,20 @@
             addLog("info", "Focus changed → " + FOCUS);
             showToast("AI focus: " + FOCUS, "info");
         }
+    }
+
+    function onDetectionIntervalChange(value) {
+       const nextValue = Number(value);
+       if (!Number.isFinite(nextValue) || nextValue < 1000) {
+           showToast("Detection interval must be at least 1000 ms", "error");
+           $("detectionIntervalInput").value = DETECTION_INTERVAL_MS;
+           return;
+       }
+
+       DETECTION_INTERVAL_MS = nextValue;
+       localStorage.setItem("detectionIntervalMs", String(DETECTION_INTERVAL_MS));
+       addLog("info", "Detection interval updated to " + DETECTION_INTERVAL_MS + " ms");
+       startPeriodicDetection();
     }
 
     /* ================================================================
@@ -1562,6 +1586,7 @@
     $("cropTypeValue").textContent = FOCUS;
     $("headerDevicePill").textContent = DEVICE_ID;
     $("headerFocusPill").textContent = "Focus: " + FOCUS;
+    $("detectionIntervalInput").value = DETECTION_INTERVAL_MS;
 
     addLog("info", "smartEyes control center starting…");
     connectWebSocket();
