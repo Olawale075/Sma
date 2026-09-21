@@ -11,16 +11,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final CameraWebSocketHandler cameraWebSocketHandler;
 
-    public WebSocketConfig(
-            CameraWebSocketHandler cameraWebSocketHandler) {
-
-        this.cameraWebSocketHandler =
-                cameraWebSocketHandler;
+    public WebSocketConfig(CameraWebSocketHandler cameraWebSocketHandler) {
+        this.cameraWebSocketHandler = cameraWebSocketHandler;
     }
 
     @Override
-    public void registerWebSocketHandlers(
-            WebSocketHandlerRegistry registry) {
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
 
         registry.addHandler(
                         cameraWebSocketHandler,
