@@ -6,16 +6,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import sms.com.sms.dto.DetectorDTO;
 import sms.com.sms.enums.NotificationPreference;
+import sms.com.sms.exception.DuplicateResourceException;
+import sms.com.sms.exception.ResourceNotFoundException;
 import sms.com.sms.mapper.DetectorMapper;
 import sms.com.sms.model.GasDetector;
 import sms.com.sms.model.Users;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.repository.UsersRepository;
-import sms.com.sms.exception.ResourceNotFoundException;
-import sms.com.sms.exception.DuplicateResourceException;
 
 import java.util.List;
 import java.util.Set;
