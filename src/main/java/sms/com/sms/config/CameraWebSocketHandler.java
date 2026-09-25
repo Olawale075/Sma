@@ -23,12 +23,14 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 import sms.com.sms.ObjectDetectionService;
+import sms.com.sms.repository.GasDetectorRepository;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -123,12 +125,16 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
      * CONSTRUCTOR
      * ============================================================ */
 
+    private final GasDetectorRepository gasDetectorRepository;
+
     public CameraWebSocketHandler(
             ObjectMapper objectMapper,
-            @Lazy ObjectDetectionService objectDetectionService
+            @Lazy ObjectDetectionService objectDetectionService,
+            GasDetectorRepository gasDetectorRepository
     ) {
         this.objectMapper = objectMapper;
         this.objectDetectionService = objectDetectionService;
+        this.gasDetectorRepository = gasDetectorRepository;
     }
 
     /* ============================================================
@@ -186,10 +192,55 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
 
         String sessionId = session.getId();
 
-        sessionDeviceIds.put(sessionId, sessionId);
+        String deviceIdFromPath = null;
+        try {
+            if (session.getUri() != null) {
+                String path = session.getUri().getPath();
+                if (path != null) {
+                    String prefix = "/camera-stream/";
+                    if (path.startsWith(prefix) && path.length() > prefix.length()) {
+                        deviceIdFromPath = path.substring(prefix.length());
+                        deviceIdFromPath = java.net.URLDecoder.decode(deviceIdFromPath, java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+
+        String effectiveDeviceId = (deviceIdFromPath == null || deviceIdFromPath.isBlank()) ? sessionId : normalizeDeviceId(deviceIdFromPath);
+
+        if (deviceIdFromPath != null && !deviceIdFromPath.isBlank()) {
+            if (!isKnownDevice(effectiveDeviceId)) {
+                log.warn("Rejecting unknown camera MAC on websocket path: {}", effectiveDeviceId);
+                try {
+                    session.close(new CloseStatus(CloseStatus.NOT_ACCEPTABLE.getCode(), "Unknown camera MAC: " + effectiveDeviceId));
+                } catch (IOException ignored) { }
+                return;
+            }
+
+            String userId = extractUserIdFromRequest(session);
+            if (!isDeviceLinkedToUser(effectiveDeviceId, userId)) {
+                log.warn("Rejecting camera MAC not linked to user: {} for user {}", effectiveDeviceId, userId);
+                try {
+                    session.close(new CloseStatus(CloseStatus.NOT_ACCEPTABLE.getCode(), "MAC not linked to user: " + effectiveDeviceId));
+                } catch (IOException ignored) { }
+                return;
+            }
+        }
+
+        sessionDeviceIds.put(sessionId, effectiveDeviceId);
         lastHeartbeat.put(sessionId, System.currentTimeMillis());
 
-        log.info("WebSocket CONNECTED: {}", sessionId);
+        if (deviceIdFromPath != null && !deviceIdFromPath.isBlank()) {
+            cameraSessions.put(effectiveDeviceId, new ConcurrentWebSocketSessionDecorator(
+                    session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT));
+            deviceLocations.putIfAbsent(effectiveDeviceId, "Unknown");
+            deviceFocus.putIfAbsent(effectiveDeviceId, "General");
+            detectionRunning.computeIfAbsent(effectiveDeviceId, k -> new AtomicBoolean(false));
+            frameCounters.computeIfAbsent(effectiveDeviceId, k -> new AtomicLong());
+            log.info("Camera connection identified from path: {} -> session {}", effectiveDeviceId, sessionId);
+        }
+
+        log.info("WebSocket CONNECTED: {} (deviceId={})", sessionId, effectiveDeviceId);
 
         sendJson(safeSession, createMessage(
                 "connected", "SmartEye WebSocket connected"));
@@ -282,6 +333,16 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                 json.path("device_id").asText(null),
                 session.getId()
         );
+
+        deviceId = normalizeDeviceId(deviceId);
+
+        if (!deviceId.equals(session.getId()) && !isKnownDevice(deviceId)) {
+            sendError(session, "Unknown camera MAC: " + deviceId);
+            try {
+                session.close(new CloseStatus(CloseStatus.NOT_ACCEPTABLE.getCode(), "Unknown camera MAC: " + deviceId));
+            } catch (IOException ignored) { }
+            return;
+        }
 
         String deviceType = json.path("deviceType").asText("").trim();
 
@@ -854,8 +915,56 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
         return session != null && session.isOpen();
     }
 
+    private String normalizeDeviceId(String value) {
+        if (value == null || value.isBlank()) return value;
+        String normalized = value.trim();
+        normalized = normalized.replace(" ", "");
+        normalized = normalized.replace("_", ":");
+        normalized = normalized.toUpperCase(Locale.ROOT);
+        return normalized;
+    }
+
+    private boolean isKnownDevice(String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) return false;
+        String normalized = normalizeDeviceId(deviceId);
+        return gasDetectorRepository.existsById(normalized);
+    }
+
+    private boolean isDeviceLinkedToUser(String deviceId, String userId) {
+        if (deviceId == null || deviceId.isBlank()) return false;
+        if (userId == null || userId.isBlank()) return true;
+        String normalizedDevice = normalizeDeviceId(deviceId);
+        String normalizedUser = userId.trim();
+        return gasDetectorRepository.findById(normalizedDevice)
+                .map(detector -> detector.getUsers() != null && detector.getUsers().stream()
+                        .anyMatch(user -> user != null && normalizedUser.equals(user.getPhonenumber())))
+                .orElse(false);
+    }
+
     private int totalSessions() {
         return cameraSessions.size() + dashboardSessions.size();
+    }
+
+    private String extractUserIdFromRequest(WebSocketSession session) {
+        if (session == null || session.getHandshakeHeaders() == null) return "getHandshakeHeaders null";
+        List<String> authHeaders = session.getHandshakeHeaders().getOrDefault("Authorization", java.util.Collections.emptyList());
+        if (authHeaders == null || authHeaders.isEmpty()) return null;
+        String authHeader = authHeaders.get(0);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
+        String token = authHeader.substring(7).trim();
+        if (token.isEmpty()) return null;
+        try {
+            String[] chunks = token.split("\\.");
+            if (chunks.length < 2) return null;
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(chunks[1]));
+            JsonNode payloadJson = objectMapper.readTree(payload);
+            if (payloadJson.has("sub")) return payloadJson.get("sub").asText(null);
+            if (payloadJson.has("phoneNumber")) return payloadJson.get("phoneNumber").asText(null);
+            if (payloadJson.has("username")) return payloadJson.get("username").asText(null);
+        } catch (Exception ignored) {
+            log.debug("Unable to decode JWT user claim from websocket auth header", ignored);
+        }
+        return null;
     }
 
     private String getDeviceId(WebSocketSession session) {

@@ -198,15 +198,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                 });
 
         // Update sensor readings (Temperature, Humidity, CO2, Status)
-        if (updatedData.getTemperature() != null) {
-            detector.setTemperature(updatedData.getTemperature());
-            log.debug("Updated temperature: {}", updatedData.getTemperature());
-        }
-        
-        if (updatedData.getHumidity() != null) {
-            detector.setHumidity(updatedData.getHumidity());
-            log.debug("Updated humidity: {}", updatedData.getHumidity());
-        }
+
         
         if (updatedData.getCo2() != null) {
             detector.setCo2(updatedData.getCo2());
@@ -237,21 +229,21 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
 
         GasDetector saved = detectorRepository.save(detector);
         log.info(" Detector updated successfully");
-        
-        // Send hazard notification if status is true (DANGER)
-        if (detector.getStatus() != null && detector.getStatus()) {
-            String alertMessage = String.format(
-                    " GAS ALERT!\nTemp: %.1f°C\nHumidity: %.1f%%\nCO2: %.1f ppm",
-                    detector.getTemperature(),
-                    detector.getHumidity(),
-                    detector.getCo2()
-            );
-            try {
-                notifyUsersByDetector(macAddress, alertMessage);
-            } catch (Exception e) {
-                log.error("Failed to send alert notification", e);
-            }
-        }
+
+//        // Send hazard notification if status is true (DANGER)
+//        if (detector.getStatus() != null && detector.getStatus()) {
+//            String alertMessage = String.format(
+//                    " GAS ALERT!\nTemp: %.1f°C\nHumidity: %.1f%%\nCO2: %.1f ppm",
+//                    detector.getTemperature(),
+//                    detector.getHumidity(),
+//                    detector.getCo2()
+//            );
+//            try {
+//                notifyUsersByDetector(macAddress, alertMessage);
+//            } catch (Exception e) {
+//                log.error("Failed to send alert notification", e);
+//            }
+//        }
         
         return detectorMapper.toDto(saved);
         
@@ -281,13 +273,13 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                         return new ResourceNotFoundException("Detector not found with MAC: " + mac);
                     });
 
-            // === Sensor values ===
-            if (dto.getTemperature() != null) {
-                existing.setTemperature(dto.getTemperature());
-            }
-            if (dto.getHumidity() != null) {
-                existing.setHumidity(dto.getHumidity());
-            }
+//            // === Sensor values ===
+//            if (dto.getTemperature() != null) {
+//                existing.setTemperature(dto.getTemperature());
+//            }
+//            if (dto.getHumidity() != null) {
+//                existing.setHumidity(dto.getHumidity());
+//            }
             if (dto.getCo2() != null) {
                 existing.setCo2(dto.getCo2());
             }

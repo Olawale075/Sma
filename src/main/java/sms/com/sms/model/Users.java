@@ -19,8 +19,8 @@ import java.util.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = "gasDetectors")
-@ToString(exclude = "gasDetectors")
+@EqualsAndHashCode(exclude = {"gasDetectors","sensorReadings"})
+@ToString(exclude = {"gasDetectors","sensorReadings"})
 @Entity
 @DynamicUpdate
 @Table(name = "users")
@@ -83,6 +83,18 @@ public class Users implements UserDetails {
     public void addGasDetector(GasDetector gasDetector) {
         this.gasDetectors.add(gasDetector);
         gasDetector.getUsers().add(this);
+    }
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SensorReading> sensorReadings = new ArrayList<>();
+
+    public void addSensorReading(SensorReading reading) {
+        this.sensorReadings.add(reading);
+        reading.setUser(this);
+    }
+
+    public List<SensorReading> getSensorReadings() {
+        return sensorReadings;
     }
 
 

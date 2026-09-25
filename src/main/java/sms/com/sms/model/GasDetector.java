@@ -34,11 +34,7 @@ public class GasDetector {
     // ==================================================
     // SENSOR DATA
     // ==================================================
-    @Column(name = "temperature")
-    private Double temperature;
 
-    @Column(name = "humidity")
-    private Double humidity;
 
     @Column(name = "co2")
     private Double co2;

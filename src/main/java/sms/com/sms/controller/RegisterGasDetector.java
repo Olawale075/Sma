@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import sms.com.sms.dto.DetectorDTO;
@@ -124,6 +125,47 @@ public class RegisterGasDetector {
             log.error("Unexpected error during detector assignment", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(createErrorResponse("Failed to assign detector: " + e.getMessage()));
+        }
+    }
+
+    // ==================================================
+    // LINK DETECTOR TO AUTHENTICATED USER
+    // ==================================================
+    @Operation(summary = "Link detector to currently authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Detector linked successfully"),
+            @ApiResponse(responseCode = "404", description = "Detector or user not found"),
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/user/link")
+    @PreAuthorize("hasAuthority('ROLE_USER') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Map<String, Object>> linkDetectorToAuthenticatedUser(
+            @RequestParam String macAddress,
+            Authentication authentication) {
+        try {
+            String phonenumber = authentication.getName();
+            log.info("Linking detector {} to authenticated user {}", macAddress, phonenumber);
+
+            if (macAddress == null || macAddress.trim().isEmpty()) {
+                log.warn("MAC address is empty");
+                return ResponseEntity.badRequest().body(createErrorResponse("MAC address cannot be empty"));
+            }
+
+            String result = gasDetectorService.assignDetectorToUser(phonenumber, macAddress);
+            return ResponseEntity.ok(createSuccessResponse(result, null));
+
+        } catch (ResourceNotFoundException e) {
+            log.warn("Resource not found during linking: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createErrorResponse(e.getMessage()));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Validation error during linking: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(createErrorResponse("Validation error: " + e.getMessage()));
+
+        } catch (Exception e) {
+            log.error("Unexpected error during detector linking", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createErrorResponse("Failed to link detector: " + e.getMessage()));
         }
     }
 

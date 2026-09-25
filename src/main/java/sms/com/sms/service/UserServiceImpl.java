@@ -77,8 +77,8 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         // Build detector DTO
         DetectorDTO detectorDTO = new DetectorDTO();
         detectorDTO. setMacAddress(detector.getMacAddress());
-        detectorDTO.setHumidity(detector.getHumidity());
-        detectorDTO.setTemperature(detector.getTemperature());
+//        detectorDTO.setHumidity(detector.getHumidity());
+//        detectorDTO.setTemperature(detector.getTemperature());
 
 
         // set other DetectorDTO fields here

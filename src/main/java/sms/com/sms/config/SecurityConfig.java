@@ -55,7 +55,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/gas-detectors/user/getDetector/**",
                                 "/gas-detectors/device/update/**",
-                                "/api",
+                                "/api/**",
                                 "/gas-detectors/users/**",
                                 "/camera-stream/**",
                                 "/ws/**",
@@ -69,7 +69,7 @@ public class SecurityConfig {
                         )
                         .permitAll()
                         .requestMatchers("/user/admin/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/gas-detectors/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                        .requestMatchers("/gas-detectors/user/**", "/api/sensor-readings/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                         .requestMatchers("/gas-detectors/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/user/**", "/user/user-gas-details/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
@@ -121,20 +121,7 @@ public class SecurityConfig {
                 "http://127.0.0.1:*",
                 "http://192.168.*:*",
                 "https://crop-disease-detector-8nqt.onrender.com",
-"https://crop-detect-aq7x.onrender.com",
-
-                "/user/sendOtp/**",
-                "/user/verifyOtpAndCreateUser/**",
-                "/user/auth/login",
-                "/user/reset-password/**",
-                "/user/sendOtpToEmail/**", // <-- fixed casing
-                "/user/forgotPassword/**",
-                "/swagger-ui/**",
-                "/v3/api-docs/**",
-                "/gas-detectors/user/getDetector/**",
-                "/gas-detectors/device/update/**",
-                "/api",
-                "/gas-detectors/users/**"
+                "https://crop-detect-aq7x.onrender.com"
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));

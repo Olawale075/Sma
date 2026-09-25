@@ -20,18 +20,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry
-                .addHandler(cameraWebSocketHandler, "/camera-stream")
+                // allow optional mac segment: /camera-stream or /camera-stream/{mac}
+                .addHandler(cameraWebSocketHandler, "/camera-stream/*")
                 .setAllowedOrigins("*");
     }
 
-    /*
-     * THIS IS THE CRITICAL PART FOR ESP32 VGA FRAMES.
-     *
-     * Default Tomcat buffer for binary messages is only 8 KB.
-     * A VGA JPEG @ quality 15 can reach ~60-120 KB.
-     * Without this bean, every frame throws MessageTooBigException
-     * and the session is torn down immediately.
-     */
+
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {
 

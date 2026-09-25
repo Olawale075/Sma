@@ -55,8 +55,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 path.startsWith("/user/sendOtpToEmail") ||
                 path.startsWith("/user/forgotPassword") ||
                 path.startsWith("/gas-detectors/user/getDetector") ||
-                path.startsWith("/gas-detectors/device/update") ||
-                path.startsWith("/api");
+                path.startsWith("/gas-detectors/device/update");
     }
 
     @Override

@@ -28,8 +28,6 @@ public class DetectorMapper {
             return DetectorDTO.builder()
                     .macAddress(detector.getMacAddress())
                     .status(detector.getStatus())
-                    .temperature(detector.getTemperature())
-                    .humidity(detector.getHumidity())
                     .co2(detector.getCo2())
                     .co2Threshold(detector.getCo2Threshold())
                     .wifiSsid(detector.getWifiSsid())
@@ -60,8 +58,6 @@ public class DetectorMapper {
             return GasDetector.builder()
                     .macAddress(dto.getMacAddress())
                     .status(dto.getStatus())
-                    .temperature(dto.getTemperature())
-                    .humidity(dto.getHumidity())
                     .co2(dto.getCo2())
                     .co2Threshold(dto.getCo2Threshold())
                     .wifiSsid(dto.getWifiSsid())
@@ -114,9 +110,7 @@ public class DetectorMapper {
         try {
             log.debug("Updating GasDetector entity from DetectorDTO");
 
-            if (dto.getTemperature() != null) entity.setTemperature(dto.getTemperature());
-            if (dto.getHumidity() != null) entity.setHumidity(dto.getHumidity());
-            if (dto.getCo2() != null) entity.setCo2(dto.getCo2());
+         if (dto.getCo2() != null) entity.setCo2(dto.getCo2());
             if (dto.getStatus() != null) entity.setStatus(dto.getStatus());
             if (dto.getCo2Threshold() != null) entity.setCo2Threshold(dto.getCo2Threshold());
             
