@@ -6,7 +6,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,13 +18,12 @@ import sms.com.sms.dto.RegisterRequest;
 import sms.com.sms.dto.UserDTO;
 import sms.com.sms.dto.UserGasDetectorDTO;
 import sms.com.sms.enums.UserRole;
-import sms.com.sms.model.GasDetector;
+import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.repository.UsersRepository;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -57,7 +55,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         }
 
         Optional<Users> optionalUser = repository.findByPhonenumber(normalizedPhone);
-        GasDetector detector = gasDetectorRepository.findByMacAddress(macAddress);
+        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(macAddress);
 
         if (optionalUser.isEmpty() || detector == null) {
             return Optional.empty();
@@ -66,8 +64,8 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         Users user = optionalUser.get();
 
         // Safer ownership check (see note below)
-        boolean ownsDetector = user.getGasDetectors() != null &&
-                user.getGasDetectors().stream()
+        boolean ownsDetector = user.getCropDeceaseDetectors() != null &&
+                user.getCropDeceaseDetectors().stream()
                         .anyMatch(d -> Objects.equals(d.getMacAddress(), detector.getMacAddress()));
 
         if (!ownsDetector) {

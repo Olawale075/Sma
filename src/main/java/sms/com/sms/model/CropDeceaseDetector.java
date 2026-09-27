@@ -17,12 +17,12 @@ import org.hibernate.annotations.DynamicUpdate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = "users")
-@ToString(exclude = "users")
+@EqualsAndHashCode(exclude = {"users", "readings"})
+@ToString(exclude = {"users", "readings"})
 @Entity
 @DynamicUpdate
 @Table(name = "gas_detectors")
-public class GasDetector {
+public class CropDeceaseDetector {
 
     // ==================================================
     // PRIMARY KEY
@@ -63,8 +63,11 @@ public class GasDetector {
     // ==================================================
     // RELATIONSHIP (INVERSE SIDE)
     // ==================================================
-    @ManyToMany(mappedBy = "gasDetectors", fetch = FetchType.LAZY)
+    @ManyToMany(mappedBy = "cropDeceaseDetectors", fetch = FetchType.LAZY)
     private Set<Users> users = new HashSet<>();
+
+    @OneToMany(mappedBy = "detector", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DetectorReading> readings = new HashSet<>();
 
     // ==================================================
     // HELPER METHOD
@@ -85,6 +88,27 @@ public class GasDetector {
     public void removeUser(Users user) {
         if (this.users != null) {
             this.users.remove(user);
+        }
+    }
+
+    /**
+     * Add a sensor reading to this detector
+     */
+    public void addReading(DetectorReading reading) {
+        if (this.readings == null) {
+            this.readings = new HashSet<>();
+        }
+        reading.setDetector(this);
+        this.readings.add(reading);
+    }
+
+    /**
+     * Remove a sensor reading from this detector
+     */
+    public void removeReading(DetectorReading reading) {
+        if (this.readings != null) {
+            this.readings.remove(reading);
+            reading.setDetector(null);
         }
     }
 

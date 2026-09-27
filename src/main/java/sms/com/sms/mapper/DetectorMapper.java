@@ -3,7 +3,7 @@ package sms.com.sms.mapper;
 import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 import sms.com.sms.dto.DetectorDTO;
-import sms.com.sms.model.GasDetector;
+import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,7 +16,7 @@ public class DetectorMapper {
      * Convert Entity to DTO
      * Maps all detector fields including sensor data, configuration, and linked users
      */
-    public DetectorDTO toDto(GasDetector detector) {
+    public DetectorDTO toDto(CropDeceaseDetector detector) {
         if (detector == null) {
             log.warn("Attempting to map null GasDetector entity");
             return null;
@@ -46,7 +46,7 @@ public class DetectorMapper {
      * Convert DTO to Entity
      * Maps all detector fields for entity creation
      */
-    public GasDetector toEntity(DetectorDTO dto) {
+    public CropDeceaseDetector toEntity(DetectorDTO dto) {
         if (dto == null) {
             log.warn("Attempting to map null DetectorDTO");
             return null;
@@ -55,7 +55,7 @@ public class DetectorMapper {
         try {
             log.debug("Mapping DetectorDTO to GasDetector entity: {}", dto.getMacAddress());
             
-            return GasDetector.builder()
+            return CropDeceaseDetector.builder()
                     .macAddress(dto.getMacAddress())
                     .status(dto.getStatus())
                     .co2(dto.getCo2())
@@ -101,7 +101,7 @@ public class DetectorMapper {
      * Update entity from DTO (useful for partial updates)
      * Only updates non-null fields
      */
-    public void updateEntityFromDto(DetectorDTO dto, GasDetector entity) {
+    public void updateEntityFromDto(DetectorDTO dto, CropDeceaseDetector entity) {
         if (dto == null || entity == null) {
             log.warn("Cannot update entity - DTO or Entity is null");
             return;

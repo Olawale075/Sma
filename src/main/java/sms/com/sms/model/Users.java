@@ -19,8 +19,8 @@ import java.util.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = {"gasDetectors","sensorReadings"})
-@ToString(exclude = {"gasDetectors","sensorReadings"})
+@EqualsAndHashCode(exclude = {"cropDeceaseDetectors"})
+@ToString(exclude = {"cropDeceaseDetectors"})
 @Entity
 @DynamicUpdate
 @Table(name = "users")
@@ -78,24 +78,14 @@ public class Users implements UserDetails {
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_gas_detector", joinColumns = @JoinColumn(name = "user_phonenumber", referencedColumnName = "phone_number"), inverseJoinColumns = @JoinColumn(name = "gas_detector_mac", referencedColumnName = "mac_address"))
-    private Set<GasDetector> gasDetectors = new HashSet<>();
+    private Set<CropDeceaseDetector> cropDeceaseDetectors = new HashSet<>();
 
-    public void addGasDetector(GasDetector gasDetector) {
-        this.gasDetectors.add(gasDetector);
-        gasDetector.getUsers().add(this);
+    public void addGasDetector(CropDeceaseDetector cropDeceaseDetector) {
+        this.cropDeceaseDetectors.add(cropDeceaseDetector);
+        cropDeceaseDetector.getUsers().add(this);
     }
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SensorReading> sensorReadings = new ArrayList<>();
 
-    public void addSensorReading(SensorReading reading) {
-        this.sensorReadings.add(reading);
-        reading.setUser(this);
-    }
-
-    public List<SensorReading> getSensorReadings() {
-        return sensorReadings;
-    }
 
 
 
@@ -137,8 +127,8 @@ public String getEmail() {
         this.phonenumber = phonenumber;
     }
 
-    public Set<GasDetector> getGasDetectors() {
-        return gasDetectors;
+    public Set<CropDeceaseDetector> getCropDeceaseDetectors() {
+        return cropDeceaseDetectors;
     }
 
     // --- Spring Security UserDetails Implementation ---

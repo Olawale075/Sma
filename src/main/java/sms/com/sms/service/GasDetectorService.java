@@ -11,7 +11,7 @@ import sms.com.sms.enums.NotificationPreference;
 import sms.com.sms.exception.DuplicateResourceException;
 import sms.com.sms.exception.ResourceNotFoundException;
 import sms.com.sms.mapper.DetectorMapper;
-import sms.com.sms.model.GasDetector;
+import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.repository.UsersRepository;
@@ -49,7 +49,7 @@ public class GasDetectorService {
                 throw new DuplicateResourceException("Detector already exists with MAC: " + dto.getMacAddress());
             }
 
-            GasDetector detector = detectorMapper.toEntity(dto);
+            CropDeceaseDetector detector = detectorMapper.toEntity(dto);
 
 
             if (dto.getPhoneNumbers() != null && !dto.getPhoneNumbers().isEmpty()) {
@@ -60,7 +60,7 @@ public class GasDetectorService {
                 detector.setUsers(users);
             }
 
-            GasDetector saved = detectorRepository.save(detector);
+            CropDeceaseDetector saved = detectorRepository.save(detector);
             log.info(" Detector created successfully: {}", saved.getMacAddress());
             return detectorMapper.toDto(saved);
             
@@ -141,7 +141,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             throw new IllegalArgumentException("Updated data cannot be null");
         }
 
-        GasDetector detector = detectorRepository.findById(macAddress)
+        CropDeceaseDetector detector = detectorRepository.findById(macAddress)
                 .orElseThrow(() -> {
                     log.error(" Detector not found: {}", macAddress);
                     return new ResourceNotFoundException("Detector not found with MAC: " + macAddress);
@@ -166,7 +166,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             log.info("Updated WiFi Password");
         }
 
-        GasDetector saved = detectorRepository.save(detector);
+        CropDeceaseDetector saved = detectorRepository.save(detector);
         log.info(" Detector configuration updated successfully");
         
         return detectorMapper.toDto(saved);
@@ -191,7 +191,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             throw new IllegalArgumentException("Updated data cannot be null");
         }
 
-        GasDetector detector = detectorRepository.findById(macAddress)
+        CropDeceaseDetector detector = detectorRepository.findById(macAddress)
                 .orElseThrow(() -> {
                     log.error(" Detector not found: {}", macAddress);
                     return new ResourceNotFoundException("Detector not found with MAC: " + macAddress);
@@ -227,7 +227,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             log.info("Updated WiFi Password");
         }
 
-        GasDetector saved = detectorRepository.save(detector);
+        CropDeceaseDetector saved = detectorRepository.save(detector);
         log.info(" Detector updated successfully");
 
 //        // Send hazard notification if status is true (DANGER)
@@ -267,7 +267,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                 throw new IllegalArgumentException("Detector DTO cannot be null");
             }
 
-            GasDetector existing = detectorRepository.findById(mac)
+            CropDeceaseDetector existing = detectorRepository.findById(mac)
                     .orElseThrow(() -> {
                         log.error(" Detector not found: {}", mac);
                         return new ResourceNotFoundException("Detector not found with MAC: " + mac);
@@ -297,7 +297,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                 log.info("Updated linked users: {}", dto.getPhoneNumbers().size());
             }
 
-            GasDetector saved = detectorRepository.save(existing);
+            CropDeceaseDetector saved = detectorRepository.save(existing);
             log.info(" Detector updated successfully via admin");
             return detectorMapper.toDto(saved);
             
@@ -355,18 +355,18 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                         return new ResourceNotFoundException("User not found with phone: " + normalizedNumber);
                     });
 
-            GasDetector gasDetector = detectorRepository.findById(macAddress)
+            CropDeceaseDetector cropDeceaseDetector = detectorRepository.findById(macAddress)
                     .orElseThrow(() -> {
                         log.error(" Detector not found: {}", macAddress);
                         return new ResourceNotFoundException("Detector not found with MAC: " + macAddress);
                     });
 
-            if (user.getGasDetectors().contains(gasDetector)) {
+            if (user.getCropDeceaseDetectors().contains(cropDeceaseDetector)) {
                 log.warn(" Detector already assigned to user: {}", normalizedNumber);
                 return "Detector already assigned to this user";
             }
 
-            user.addGasDetector(gasDetector);
+            user.addGasDetector(cropDeceaseDetector);
             usersRepository.save(user);
             
             log.info(" Detector assigned successfully");
@@ -393,7 +393,7 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
                 throw new IllegalArgumentException("Message cannot be empty");
             }
             
-            GasDetector detector = detectorRepository.findById(macAddress)
+            CropDeceaseDetector detector = detectorRepository.findById(macAddress)
                     .orElseThrow(() -> {
                         log.error(" Detector not found: {}", macAddress);
                         return new ResourceNotFoundException("Detector not found with MAC: " + macAddress);

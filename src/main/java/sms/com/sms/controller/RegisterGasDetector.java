@@ -20,12 +20,11 @@ import org.springframework.web.bind.annotation.*;
 
 import sms.com.sms.dto.DetectorDTO;
 import sms.com.sms.exception.ResourceNotFoundException;
-import sms.com.sms.model.GasDetector;
+import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.service.GasDetectorService;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -538,7 +537,7 @@ public ResponseEntity<Map<String, Object>> updateDetectorDevice(
 
             String decodedMac = macAddress.replace("%3A", ":");
             
-            GasDetector detector = detectorRepository.findById(decodedMac)
+            CropDeceaseDetector detector = detectorRepository.findById(decodedMac)
                     .orElseThrow(() -> {
                         log.error("Detector not found for provisioning: {}", decodedMac);
                         return new ResourceNotFoundException("Detector not found with MAC: " + decodedMac);
