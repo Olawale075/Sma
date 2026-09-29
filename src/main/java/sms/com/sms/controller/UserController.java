@@ -33,6 +33,8 @@ import sms.com.sms.service.UserServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+import static sms.com.sms.service.OtpGenerator.generateOtp;
+
 @RestController
 @SecurityRequirement(name = "bearerAuth")
 @CrossOrigin("*")

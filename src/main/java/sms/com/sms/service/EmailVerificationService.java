@@ -12,12 +12,19 @@ import sms.com.sms.repository.UsersRepository;
 @Service
 public class EmailVerificationService {
 
-    private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
 
-     @Autowired
-    private MailService emailService;
+    private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
+  @Autowired
+    private final ResendEmailService resendEmailService;
+    @Autowired
+    private EmailService emailService;
  @Autowired
  private UsersRepository repository;
+
+    public EmailVerificationService(ResendEmailService resendEmailService) {
+        this.resendEmailService = resendEmailService;
+    }
+
     public ResponseEntity<?> sendOtpToEmail(String email) {
         // Check if email is already in use
         if (repository.findByEmail(email) != null) {
@@ -32,11 +39,17 @@ public class EmailVerificationService {
 
         // Send OTP via email
         String message = "Your email verification code is: " + otp;
-        emailService.sendVerificationEmail(email, message);
+        sendOtpEmail(email,  otp);
 
         return ResponseEntity.ok("Verification code sent");
     }
-
+    public boolean sendOtpEmail(String toEmail, String otp) {
+        String subject = "Your OTP Code";
+        // Assuming OTP emails are simple text, we can wrap it in basic HTML
+        String htmlBody = "<p>Your OTP is: <strong>" + otp + "</strong></p>";
+       // logger.info("Attempting to send OTP email via Resend to {}", toEmail);
+        return sendEmail(toEmail, subject, htmlBody, null); // Use the 4-arg method with null fromEmail
+    }
     public boolean verifyOtp(String email, String inputOtp) {
         OtpEntry entry = otpStore.get(email);
         if (entry != null && entry.getCode().equals(inputOtp) && LocalDateTime.now().isBefore(entry.getExpiry())) {
@@ -44,6 +57,10 @@ public class EmailVerificationService {
             return true;
         }
         return false;
+    }
+    public boolean sendEmail(String toEmail, String subject, String htmlBody, String fromEmail) {
+     //   logger.info("Attempting to send email via Resend to {} from {} with subject: {}", toEmail, fromEmail, subject);
+        return resendEmailService.sendEmail(toEmail, subject, htmlBody, fromEmail);
     }
 
     // Helper class to hold OTP and expiration
