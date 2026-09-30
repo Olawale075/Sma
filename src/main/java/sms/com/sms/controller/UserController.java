@@ -94,15 +94,14 @@ private  final EmailVerificationService emailVerificationService;
     @PostMapping("forgotPassword/{email}")
     public ResponseEntity<?> forgotPassword(@PathVariable String email) {
 
-        
-        try {
-return service.forgotPassword(email);
-} catch (Exception e) {
-    
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send email");
-}
+       try {
+           return service.forgotPassword(email);
+       } catch (Exception e) {
+           return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                   .body("Failed to send email: " + e.getMessage());
+       }
 
-    }
+   }
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestParam String token, @RequestParam String newPassword) {

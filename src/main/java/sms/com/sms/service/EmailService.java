@@ -35,9 +35,17 @@ public class EmailService {
 
     public boolean sendOtpEmail(String toEmail, String otp) {
         String subject = "Your OTP Code";
-        // Assuming OTP emails are simple text, we can wrap it in basic HTML
         String htmlBody = "<p>Your OTP is: <strong>" + otp + "</strong></p>";
         logger.info("Attempting to send OTP email via Resend to {}", toEmail);
-        return sendEmail(toEmail, subject, htmlBody, null); // Use the 4-arg method with null fromEmail
+        return sendEmail(toEmail, subject, htmlBody, null);
+    }
+
+    public boolean sendResetPasswordEmail(String toEmail, String resetLink) {
+        String subject = "Reset Your Password Token";
+        String htmlBody = "<p>You requested to reset your password.</p>"
+                + "<p>Please do not share this token with anyone your token is :</p>"
+                + "<p>" + resetLink + "</p>";
+        logger.info("Attempting to send password reset email via Resend to {}", toEmail);
+        return sendEmail(toEmail, subject, htmlBody, null);
     }
 }

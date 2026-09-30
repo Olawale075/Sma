@@ -37,7 +37,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     private final EmailVerificationService emailVerificationService;
 
     private final SmsService smsService;
-    private final MailService emailService;
+    private final EmailService emailService;
 
 
     private final Map<String, Users> tempUserStorage = new HashMap<>();
@@ -227,14 +227,16 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         if (user.isEmpty()) {
             return ResponseEntity.badRequest().body("Email not found");
         }
-
+        String otp = String.format("%06d", new Random().nextInt(999999));
         Users existingUser = user.get();
-        String token = UUID.randomUUID().toString();
-        existingUser.setResetToken(token);
+        existingUser.setResetToken(otp);
         repository.save(existingUser);
 
-        String resetLink = "http://localhost:8080/reset-password?token=" + token;
-        emailService.sendResetPasswordEmail(existingUser.getEmail(), resetLink);
+
+        boolean sent = emailService.sendResetPasswordEmail(existingUser.getEmail(), otp);
+        if (!sent) {
+            return ResponseEntity.status(500).body("Failed to send password reset email. Please contact support.");
+        }
 
         return ResponseEntity.ok("Password reset link sent");
     }

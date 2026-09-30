@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import sms.com.sms.enums.NotificationPreference;
 import sms.com.sms.enums.UserRole;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -66,7 +67,8 @@ public class Users implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
-
+ private BigDecimal AIToken;
+ private BigDecimal sMSToken;
     @Column(nullable = false)
     private String password;
 
