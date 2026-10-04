@@ -23,5 +23,6 @@ public class RegisterRequest {
     private String farmName;
     private String farmLocation;
     private String farmSize;
+    private String otp;
 
 }

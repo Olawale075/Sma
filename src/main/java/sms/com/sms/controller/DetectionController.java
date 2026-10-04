@@ -6,10 +6,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import sms.com.sms.ObjectDetectionService;
+import sms.com.sms.model.CropDeceaseDetector;
+import sms.com.sms.model.Users;
+import sms.com.sms.repository.GasDetectorRepository;
+import sms.com.sms.repository.UsersRepository;
+import sms.com.sms.service.EmailService;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -24,16 +31,26 @@ public class DetectionController {
     private static final String DEFAULT_FOCUS = "General";
 
     private final ObjectDetectionService detectionService;
+    private final EmailService emailService;
+    private final UsersRepository usersRepository;
+    private final GasDetectorRepository gasDetectorRepository;
 
-    public DetectionController(ObjectDetectionService detectionService) {
+    public DetectionController(ObjectDetectionService detectionService, EmailService emailService,
+                              UsersRepository usersRepository, GasDetectorRepository gasDetectorRepository) {
         this.detectionService = detectionService;
+        this.emailService = emailService;
+        this.usersRepository = usersRepository;
+        this.gasDetectorRepository = gasDetectorRepository;
     }
 
-    @PostMapping({"", "/", "/image"})
+    @PostMapping("/image")
     public ResponseEntity<?> detectImage(
             @RequestParam("image") MultipartFile image,
             @RequestParam(value = "focus", required = false) String focus,
-            @RequestParam(value = "cropType", required = false) String legacyCropType) {
+            @RequestParam(value = "cropType", required = false) String legacyCropType,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "deviceId", required = false) String deviceId,
+            @RequestParam(value = "location", required = false) String location) {
 
         // ---- validation ----
         if (image == null || image.isEmpty()) {
@@ -87,6 +104,14 @@ public class DetectionController {
                 response.put("conditionName", top.conditionName);
                 response.put("treatment", top.treatment != null ? top.treatment : null);
                 response.put("whenToAct", top.whenToAct);
+
+                if (shouldSendCropAlert(results)) {
+                    try {
+                        sendCropAlertEmail(image, results, email, deviceId, effectiveFocus, location);
+                    } catch (Exception ex) {
+                        log.warn("Crop alert email could not be sent for image: {}", ex.getMessage());
+                    }
+                }
             }
 
             return ResponseEntity.ok(response);
@@ -104,6 +129,113 @@ public class DetectionController {
             log.error("Unexpected detection error", e);
             return serverError("Unexpected error during detection");
         }
+    }
+
+    private void sendCropAlertEmail(MultipartFile image,
+                                   List<ObjectDetectionService.DetectionResult> results,
+                                   String email,
+                                   String deviceId,
+                                   String focus,
+                                   String location) throws IOException {
+        if (image == null || image.isEmpty()) {
+            return;
+        }
+
+        String recipient = resolveRecipientEmail(email, deviceId);
+        if (recipient == null || recipient.isBlank()) {
+            return;
+        }
+
+        ObjectDetectionService.DetectionResult alertResult = results.stream()
+                .filter(this::isCropAlertResult)
+                .findFirst()
+                .orElse(null);
+        if (alertResult == null) {
+            return;
+        }
+
+        String subject = "Crop Alert: " + alertResult.className + " detected";
+        String imageMimeType = image.getContentType() != null && image.getContentType().startsWith("image/")
+                ? image.getContentType() : "image/jpeg";
+        byte[] imageBytes = image.getBytes();
+        String imageDataUri = "data:" + imageMimeType + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
+
+        String html = "<h2>Crop health alert</h2>"
+                + "<p><strong>Detected issue:</strong> " + escapeHtml(alertResult.className) + "</p>"
+                + "<p><strong>Severity:</strong> " + alertResult.severity + "</p>"
+                + "<p><strong>Health status:</strong> " + (alertResult.healthStatus != null ? alertResult.healthStatus : "unknown") + "</p>"
+                + "<p><strong>Focus:</strong> " + escapeHtml(focus) + "</p>"
+                + "<p><strong>Location:</strong> " + escapeHtml(location != null ? location : "Not provided") + "</p>"
+                + "<p><strong>Confidence:</strong> " + Math.round(alertResult.probability * 100) + "%</p>"
+                + "<p><strong>Recommendation:</strong> " + escapeHtml(alertResult.treatment != null ? alertResult.treatment : "Please inspect the crop immediately.") + "</p>"
+                + "<p><strong>Action window:</strong> " + escapeHtml(alertResult.whenToAct != null ? alertResult.whenToAct : "Inspect as soon as possible.") + "</p>"
+                + "<div style='margin-top:16px;'><img src='" + imageDataUri + "' alt='Crop alert image' style='max-width:100%; border-radius:8px; border:1px solid #ddd;' /></div>";
+
+        emailService.sendEmail(recipient, subject, html);
+        log.info("Sent crop alert email to {} for device {} with issue {}", recipient, deviceId, alertResult.className);
+    }
+
+    private String resolveRecipientEmail(String email, String deviceId) {
+        if (isNotBlank(email)) {
+            return email.trim();
+        }
+        if (isNotBlank(deviceId)) {
+            Users user = usersRepository.findByPhonenumber(deviceId).orElse(null);
+            if (user != null && isNotBlank(user.getEmail())) {
+                return user.getEmail();
+            }
+
+            CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId);
+            if (detector != null && detector.getUsers() != null) {
+                return detector.getUsers().stream()
+                        .filter(u -> u != null && isNotBlank(u.getEmail()))
+                        .map(Users::getEmail)
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+        return null;
+    }
+
+    private boolean shouldSendCropAlert(List<ObjectDetectionService.DetectionResult> results) {
+        return results != null && results.stream().anyMatch(this::isCropAlertResult);
+    }
+
+    private boolean isCropAlertResult(ObjectDetectionService.DetectionResult result) {
+        if (result == null) {
+            return false;
+        }
+
+        String className = result.className == null ? "" : result.className.toLowerCase(Locale.ROOT);
+        String healthStatus = result.healthStatus == null ? "" : result.healthStatus.toLowerCase(Locale.ROOT);
+
+        if ("diseased".equals(healthStatus) || "injured".equals(healthStatus)) {
+            return true;
+        }
+        if (result.severity == ObjectDetectionService.Severity.HIGH || result.severity == ObjectDetectionService.Severity.CRITICAL) {
+            return true;
+        }
+        if (className.contains("disease") || className.contains("damage") || className.contains("broken")
+                || className.contains("leaf") && (className.contains("spot") || className.contains("blight") || className.contains("rot") || className.contains("damage"))
+                || className.contains("pest") || className.contains("fungus") || className.contains("rot")) {
+            return true;
+        }
+        if (className.contains("person") || className.contains("human") || className.contains("animal")
+                || className.contains("vehicle") || className.contains("intruder") || className.contains("thief")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     // ---- helpers ----

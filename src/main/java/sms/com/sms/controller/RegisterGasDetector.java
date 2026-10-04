@@ -21,11 +21,18 @@ import org.springframework.web.bind.annotation.*;
 import sms.com.sms.dto.DetectorDTO;
 import sms.com.sms.exception.ResourceNotFoundException;
 import sms.com.sms.model.CropDeceaseDetector;
+import sms.com.sms.model.DetectorReading;
+import sms.com.sms.repository.DetectorReadingRepository;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.service.GasDetectorService;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/gas-detectors")
@@ -38,6 +45,7 @@ public class RegisterGasDetector {
 
     private final GasDetectorService gasDetectorService;
     private final GasDetectorRepository detectorRepository;
+    private final DetectorReadingRepository detectorReadingRepository;
 
     // ==================================================
     // REGISTER
@@ -260,18 +268,268 @@ public class RegisterGasDetector {
             response.put("data", pagedResult.getContent());
             
             return ResponseEntity.ok(response);
-
+ 
         } catch (IllegalArgumentException e) {
             log.warn("Invalid parameters: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(createErrorResponse("Invalid parameters: " + e.getMessage()));
-
+ 
         } catch (Exception e) {
             log.error("Unexpected error while fetching all detectors", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(createErrorResponse("Failed to fetch detectors: " + e.getMessage()));
         }
     }
+
+   @Operation(summary = "Filter detectors with the full payload required by reports and analytics")
+   @GetMapping("/admin/filter")
+   @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_USER')")
+   public ResponseEntity<Map<String, Object>> filterDetectors(
+           @RequestParam(required = false) String macAddress,
+           @RequestParam(required = false) String location,
+           @RequestParam(required = false) Boolean status,
+           @RequestParam(required = false) Boolean healthy,
+           @RequestParam(required = false) String from,
+           @RequestParam(required = false) String to,
+           @RequestParam(defaultValue = "0") int page,
+           @RequestParam(defaultValue = "50") int size,
+           @RequestParam(defaultValue = "macAddress") String sortBy) {
+       try {
+           List<CropDeceaseDetector> allDetectors = detectorRepository.findAll();
+
+           List<Map<String, Object>> filteredData = allDetectors.stream()
+                   .filter(detector -> matchesFilter(detector, macAddress, location, status, healthy, from, to))
+                   .map(this::buildDetectorPayload)
+                   .sorted((left, right) -> compareBySortField(left, right, sortBy))
+                   .skip((long) page * size)
+                   .limit(size)
+                   .collect(Collectors.toList());
+
+           List<Map<String, Object>> allMatches = allDetectors.stream()
+                   .filter(detector -> matchesFilter(detector, macAddress, location, status, healthy, from, to))
+                   .map(this::buildDetectorPayload)
+                   .collect(Collectors.toList());
+
+           Map<String, Object> response = new LinkedHashMap<>();
+           response.put("success", true);
+           response.put("page", page);
+           response.put("size", size);
+           response.put("count", filteredData.size());
+           response.put("total", allMatches.size());
+           response.put("data", filteredData);
+           response.put("report", buildReportSummary(allMatches));
+           response.put("analytics", buildAnalyticsSummary(allMatches));
+           return ResponseEntity.ok(response);
+       } catch (Exception e) {
+           log.error("Error filtering detectors", e);
+           return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                   .body(createErrorResponse("Failed to filter detector data: " + e.getMessage()));
+       }
+   }
+
+   @Operation(summary = "Get report data for all detector records")
+   @GetMapping("/admin/report")
+   @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_USER')")
+   public ResponseEntity<Map<String, Object>> getDetectorReport(
+           @RequestParam(required = false) String macAddress,
+           @RequestParam(required = false) String location,
+           @RequestParam(required = false) Boolean status,
+           @RequestParam(required = false) Boolean healthy,
+           @RequestParam(required = false) String from,
+           @RequestParam(required = false) String to) {
+       List<CropDeceaseDetector> allDetectors = detectorRepository.findAll();
+       List<Map<String, Object>> filtered = allDetectors.stream()
+               .filter(detector -> matchesFilter(detector, macAddress, location, status, healthy, from, to))
+               .map(this::buildDetectorPayload)
+               .collect(Collectors.toList());
+
+       Map<String, Object> response = new LinkedHashMap<>();
+       response.put("success", true);
+       response.put("count", filtered.size());
+       response.put("data", filtered);
+       response.put("report", buildReportSummary(filtered));
+       response.put("analytics", buildAnalyticsSummary(filtered));
+       return ResponseEntity.ok(response);
+   }
+
+   @Operation(summary = "Get analytics summary for detectors")
+   @GetMapping("/admin/analytics")
+   @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_USER')")
+   public ResponseEntity<Map<String, Object>> getDetectorAnalytics(
+           @RequestParam(required = false) String macAddress,
+           @RequestParam(required = false) String location,
+           @RequestParam(required = false) Boolean status,
+           @RequestParam(required = false) Boolean healthy,
+           @RequestParam(required = false) String from,
+           @RequestParam(required = false) String to) {
+       List<CropDeceaseDetector> allDetectors = detectorRepository.findAll();
+       List<Map<String, Object>> filtered = allDetectors.stream()
+               .filter(detector -> matchesFilter(detector, macAddress, location, status, healthy, from, to))
+               .map(this::buildDetectorPayload)
+               .collect(Collectors.toList());
+
+       Map<String, Object> response = new LinkedHashMap<>();
+       response.put("success", true);
+       response.put("count", filtered.size());
+       response.put("analytics", buildAnalyticsSummary(filtered));
+       response.put("report", buildReportSummary(filtered));
+       response.put("data", filtered);
+       return ResponseEntity.ok(response);
+   }
+
+   private boolean matchesFilter(CropDeceaseDetector detector, String macAddress, String location, Boolean status,
+                                Boolean healthy, String from, String to) {
+       if (detector == null) {
+           return false;
+       }
+       if (macAddress != null && !macAddress.isBlank() && !macAddress.equalsIgnoreCase(detector.getMacAddress())) {
+           return false;
+       }
+       if (location != null && !location.isBlank() && !location.equalsIgnoreCase(detector.getLocation())) {
+           return false;
+       }
+       if (status != null && !status.equals(detector.getStatus())) {
+           return false;
+       }
+
+       DetectorReading lastReading = detectorReadingRepository.findTopByDetectorMacAddressOrderByReceivedAtDesc(detector.getMacAddress()).orElse(null);
+       if (healthy != null && lastReading != null && !healthy.equals(Boolean.valueOf(Boolean.TRUE.equals(lastReading.getHealthy())))) {
+           return false;
+       }
+       if (healthy != null && lastReading == null) {
+           return false;
+       }
+
+       if (from != null && !from.isBlank()) {
+           try {
+               java.time.Instant fromInstant = java.time.Instant.parse(from);
+               if (lastReading == null || lastReading.getReceivedAt() == null || lastReading.getReceivedAt().isBefore(fromInstant)) {
+                   return false;
+               }
+           } catch (java.time.format.DateTimeParseException ignored) {
+               return false;
+           }
+       }
+       if (to != null && !to.isBlank()) {
+           try {
+               java.time.Instant toInstant = java.time.Instant.parse(to);
+               if (lastReading == null || lastReading.getReceivedAt() == null || lastReading.getReceivedAt().isAfter(toInstant)) {
+                   return false;
+               }
+           } catch (java.time.format.DateTimeParseException ignored) {
+               return false;
+           }
+       }
+       return true;
+   }
+
+   private Map<String, Object> buildDetectorPayload(CropDeceaseDetector detector) {
+       Map<String, Object> payload = new LinkedHashMap<>();
+       payload.put("macAddress", detector.getMacAddress());
+       payload.put("status", detector.getStatus());
+       payload.put("location", detector.getLocation());
+       payload.put("co2", detector.getCo2());
+       payload.put("co2Threshold", detector.getCo2Threshold());
+       payload.put("wifiSsid", detector.getWifiSsid());
+       payload.put("phoneNumbers", detector.getUsers() == null ? new ArrayList<>() : detector.getUsers().stream()
+               .map(user -> user.getPhonenumber())
+               .filter(phone -> phone != null && !phone.isBlank())
+               .collect(Collectors.toList()));
+
+       DetectorReading lastReading = detectorReadingRepository.findTopByDetectorMacAddressOrderByReceivedAtDesc(detector.getMacAddress()).orElse(null);
+       if (lastReading == null) {
+           payload.put("lastReading", null);
+           payload.put("readingCount", 0);
+           payload.put("healthy", null);
+           return payload;
+       }
+
+       Map<String, Object> reading = new LinkedHashMap<>();
+       reading.put("id", lastReading.getId());
+       reading.put("temperature", lastReading.getTemperature());
+       reading.put("humidity", lastReading.getHumidity());
+       reading.put("soil", lastReading.getSoil());
+       reading.put("soilMoisture", lastReading.getSoilMoisture());
+       reading.put("gas", lastReading.getGas());
+       reading.put("co2", lastReading.getCo2());
+       reading.put("receivedAt", lastReading.getReceivedAt());
+       reading.put("overallStatus", lastReading.getOverallStatus());
+       reading.put("temperatureStatus", lastReading.getTemperatureStatus());
+       reading.put("humidityStatus", lastReading.getHumidityStatus());
+       reading.put("soilMoistureStatus", lastReading.getSoilMoistureStatus());
+       reading.put("healthy", lastReading.getHealthy());
+       reading.put("message", lastReading.getMessage());
+       reading.put("recommendation", lastReading.getRecommendation());
+       reading.put("suggestedActions", lastReading.getSuggestedActions());
+
+       payload.put("lastReading", reading);
+       payload.put("readingCount", detectorReadingRepository.findByDetectorMacAddressOrderByReceivedAtDesc(detector.getMacAddress()).size());
+       payload.put("healthy", lastReading.getHealthy());
+       return payload;
+   }
+
+   private Map<String, Object> buildReportSummary(List<Map<String, Object>> filtered) {
+       Map<String, Object> report = new LinkedHashMap<>();
+       report.put("totalRecords", filtered.size());
+       report.put("activeDetectors", filtered.stream().filter(entry -> Boolean.TRUE.equals(entry.get("status"))).count());
+       report.put("inactiveDetectors", filtered.stream().filter(entry -> Boolean.FALSE.equals(entry.get("status"))).count());
+       report.put("healthyDetectors", filtered.stream().filter(entry -> Boolean.TRUE.equals(entry.get("healthy"))).count());
+       report.put("unhealthyDetectors", filtered.stream().filter(entry -> Boolean.FALSE.equals(entry.get("healthy"))).count());
+       return report;
+   }
+
+   private Map<String, Object> buildAnalyticsSummary(List<Map<String, Object>> filtered) {
+       Map<String, Object> analytics = new LinkedHashMap<>();
+       List<Double> co2Values = filtered.stream()
+               .map(entry -> (Map<String, Object>) entry.get("lastReading"))
+               .filter(reading -> reading != null)
+               .map(reading -> reading.get("co2"))
+               .filter(value -> value instanceof Number)
+               .map(value -> ((Number) value).doubleValue())
+               .collect(Collectors.toList());
+
+       List<Double> humidityValues = filtered.stream()
+               .map(entry -> (Map<String, Object>) entry.get("lastReading"))
+               .filter(reading -> reading != null)
+               .map(reading -> reading.get("humidity"))
+               .filter(value -> value instanceof Number)
+               .map(value -> ((Number) value).doubleValue())
+               .collect(Collectors.toList());
+
+       List<Double> temperatureValues = filtered.stream()
+               .map(entry -> (Map<String, Object>) entry.get("lastReading"))
+               .filter(reading -> reading != null)
+               .map(reading -> reading.get("temperature"))
+               .filter(value -> value instanceof Number)
+               .map(value -> ((Number) value).doubleValue())
+               .collect(Collectors.toList());
+
+       analytics.put("averageCo2", co2Values.isEmpty() ? 0.0 : co2Values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+       analytics.put("averageHumidity", humidityValues.isEmpty() ? 0.0 : humidityValues.stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+       analytics.put("averageTemperature", temperatureValues.isEmpty() ? 0.0 : temperatureValues.stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+       analytics.put("maxCo2", co2Values.isEmpty() ? 0.0 : co2Values.stream().mapToDouble(Double::doubleValue).max().orElse(0.0));
+       analytics.put("locations", filtered.stream()
+               .collect(Collectors.groupingBy(entry -> entry.get("location") == null ? "Unknown" : String.valueOf(entry.get("location")), Collectors.counting())));
+       return analytics;
+   }
+
+   private int compareBySortField(Map<String, Object> left, Map<String, Object> right, String sortBy) {
+       Object leftValue = left.get(sortBy == null || sortBy.isBlank() ? "macAddress" : sortBy);
+       Object rightValue = right.get(sortBy == null || sortBy.isBlank() ? "macAddress" : sortBy);
+       if (leftValue == null && rightValue == null) {
+           return 0;
+       }
+       if (leftValue == null) {
+           return 1;
+       }
+       if (rightValue == null) {
+           return -1;
+       }
+       String leftString = String.valueOf(leftValue);
+       String rightString = String.valueOf(rightValue);
+       return leftString.compareToIgnoreCase(rightString);
+   }
+
 @PutMapping("/user/configure/{macAddress}")
 @PreAuthorize("permitAll()")
 public ResponseEntity<Map<String, Object>> configureDetector(

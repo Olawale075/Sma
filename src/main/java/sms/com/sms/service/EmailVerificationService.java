@@ -27,8 +27,8 @@ public class EmailVerificationService {
 
     public ResponseEntity<?> sendOtpToEmail(String email) {
         // Check if email is already in use
-        if (repository.findByEmail(email) != null) {
-            return ResponseEntity.badRequest().body("Email has been used");
+        if (repository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body("Email has been used   ok  ");
         }
 
         // Generate OTP

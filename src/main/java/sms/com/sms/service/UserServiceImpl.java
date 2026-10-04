@@ -162,7 +162,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             // if (!otpService.verifyOtp(phoneNumber, request.getOtp())) {
             //     return ResponseEntity.badRequest().body("Invalid OTP");
             // }
-
+if(!emailVerificationService.verifyOtp(request.getEmail(), request.getOtp())) {
+                return ResponseEntity.badRequest().body("Invalid OTP for email verification");
+            }
             Users user = Users.builder()
                     .phonenumber(phoneNumber)
                     .name(request.getFullName()) // This should not be null!
