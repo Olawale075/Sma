@@ -1,5 +1,6 @@
 package sms.com.sms.dto;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,7 +30,8 @@ public class UserDTO {
     @Email(message = "Invalid email format")
     @Size(max = 100, message = "Email must not exceed 100 characters")
     private String email;
-
+    private BigDecimal AITokenBalance;
+    private BigDecimal sMSTokenBalance;
     private NotificationPreference notificationPreference;
 
 //    @Builder.Default

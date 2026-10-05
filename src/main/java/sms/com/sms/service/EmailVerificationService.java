@@ -45,9 +45,7 @@ public class EmailVerificationService {
     }
     public boolean sendOtpEmail(String toEmail, String otp) {
         String subject = "Your OTP Code";
-        // Assuming OTP emails are simple text, we can wrap it in basic HTML
         String htmlBody = "<p>Your OTP is: <strong>" + otp + "</strong></p>";
-       // logger.info("Attempting to send OTP email via Resend to {}", toEmail);
         return sendEmail(toEmail, subject, htmlBody, null); // Use the 4-arg method with null fromEmail
     }
     public boolean verifyOtp(String email, String inputOtp) {
