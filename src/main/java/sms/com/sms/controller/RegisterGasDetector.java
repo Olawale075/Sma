@@ -282,7 +282,7 @@ public class RegisterGasDetector {
     }
 
    @Operation(summary = "Filter detectors with the full payload required by reports and analytics")
-   @GetMapping("/admin/filter")
+   @GetMapping("/user/filter")
    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_USER')")
    public ResponseEntity<Map<String, Object>> filterDetectors(
            @RequestParam(required = false) String macAddress,
