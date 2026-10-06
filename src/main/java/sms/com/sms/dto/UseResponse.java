@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -16,4 +18,6 @@ public class UseResponse {
     private String size;
     private  String crop;
     private String farmName;
+    private BigDecimal AITokenBalance;
+    private BigDecimal sMSTokenBalance;
 }

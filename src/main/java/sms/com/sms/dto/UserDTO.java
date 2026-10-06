@@ -30,8 +30,7 @@ public class UserDTO {
     @Email(message = "Invalid email format")
     @Size(max = 100, message = "Email must not exceed 100 characters")
     private String email;
-    private BigDecimal AITokenBalance;
-    private BigDecimal sMSTokenBalance;
+
     private NotificationPreference notificationPreference;
 
 //    @Builder.Default
