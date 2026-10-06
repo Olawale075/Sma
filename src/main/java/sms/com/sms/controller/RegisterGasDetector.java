@@ -353,7 +353,7 @@ public class RegisterGasDetector {
    }
 
    @Operation(summary = "Get analytics summary for detectors")
-   @GetMapping("/admin/analytics")
+   @GetMapping("/user/analytics")
    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_USER')")
    public ResponseEntity<Map<String, Object>> getDetectorAnalytics(
            @RequestParam(required = false) String macAddress,
