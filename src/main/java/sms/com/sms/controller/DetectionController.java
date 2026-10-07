@@ -3,6 +3,7 @@ package sms.com.sms.controller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import sms.com.sms.ObjectDetectionService;
@@ -13,6 +14,7 @@ import sms.com.sms.repository.UsersRepository;
 import sms.com.sms.service.EmailService;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +73,11 @@ public class DetectionController {
                           : DEFAULT_FOCUS;
 
         try {
+            ResponseEntity<Map<String, Object>> tokenCheck = deductAiTokenForPrompt(email, deviceId);
+            if (tokenCheck != null) {
+                return tokenCheck;
+            }
+
             List<ObjectDetectionService.DetectionResult> results =
                     detectionService.detectEverything(
                             image.getBytes(),
@@ -129,6 +136,51 @@ public class DetectionController {
             log.error("Unexpected detection error", e);
             return serverError("Unexpected error during detection");
         }
+    }
+
+    private ResponseEntity<Map<String, Object>> deductAiTokenForPrompt(String email, String deviceId) {
+        Users user = resolveAuthenticatedUserOrLookup(email, deviceId);
+        if (user == null) {
+            return null;
+        }
+
+        BigDecimal balance = user.getAITokenBalance() == null ? BigDecimal.ZERO : user.getAITokenBalance();
+        BigDecimal deduction = BigDecimal.TEN;
+        if (balance.compareTo(deduction) < 0) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("error", "Insufficient AI token balance. Please top up your AITokenBalance.");
+            return ResponseEntity.status(402).body(body);
+        }
+
+        user.setAITokenBalance(balance.subtract(deduction));
+        usersRepository.save(user);
+        return null;
+    }
+
+    private Users resolveAuthenticatedUserOrLookup(String email, String deviceId) {
+        Object principal = SecurityContextHolder.getContext() != null
+                ? SecurityContextHolder.getContext().getAuthentication() != null
+                        ? SecurityContextHolder.getContext().getAuthentication().getPrincipal()
+                        : null
+                : null;
+
+        if (principal instanceof Users) {
+            return (Users) principal;
+        }
+
+        if (isNotBlank(email)) {
+            Users byEmail = usersRepository.findByEmail(email.trim()).orElse(null);
+            if (byEmail != null) {
+                return byEmail;
+            }
+        }
+
+        if (isNotBlank(deviceId)) {
+            return usersRepository.findByPhonenumber(deviceId.trim()).orElse(null);
+        }
+
+        return null;
     }
 
     private void sendCropAlertEmail(MultipartFile image,

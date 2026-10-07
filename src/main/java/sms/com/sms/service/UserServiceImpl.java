@@ -13,10 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import sms.com.sms.dto.DetectorDTO;
-import sms.com.sms.dto.RegisterRequest;
-import sms.com.sms.dto.UserDTO;
-import sms.com.sms.dto.UserGasDetectorDTO;
+import sms.com.sms.dto.*;
 import sms.com.sms.enums.UserRole;
 import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
@@ -277,21 +274,22 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                         .build());
     }
 
-    public Optional<UserDTO> getUserByPhone(String phonenumber) {
+    public Optional<UseResponse> getUserByPhone(String phonenumber) {
 
         if (!phonenumber.startsWith("234")) {
             phonenumber = "234" + phonenumber.replaceFirst("^0", "");
         }
 
        Optional<Users> user =  repository.findByPhonenumber(phonenumber);
-        UserDTO userDTO = UserDTO.builder()
-                .phoneNumbers(user.get().getPhonenumber())
+        UseResponse userDTO = UseResponse.builder()
+                .phoneNumber(user.get().getPhonenumber())
                 .name(user.get().getName())
                 .email(user.get().getEmail())
                 .crop(user.get().getCrop())
                 .farmName(user.get().getFarmName())
                 .farmLocation(user.get().getFarmLocation())
                 .farmSize(user.get().getFarmSize())
+                .sMSTokenBalance(user.get().getsMSTokenBalance())
                // .notificationPreference(user.get().getNotificationPreference())
                 .build();
         return Optional.ofNullable(userDTO);

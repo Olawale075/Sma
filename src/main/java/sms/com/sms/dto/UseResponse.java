@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Builder
 public class UseResponse {
-    private String fullName;
+    private String name;
     private String email;
     private String phoneNumber;
     private String size;
@@ -20,4 +20,9 @@ public class UseResponse {
     private String farmName;
     private BigDecimal AITokenBalance;
     private BigDecimal sMSTokenBalance;
+    private String farmLocation;
+    private String notificationPreference;
+    private String farmSize;
+
+
 }

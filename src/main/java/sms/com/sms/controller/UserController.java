@@ -199,8 +199,8 @@ public ResponseEntity<?> getUserGasDetails(@RequestParam String phoneNumber, @Re
 }
     @Operation(summary = "Get the User with the Phone Number")
     @GetMapping("/{phoneNumber}")
-    public ResponseEntity<UserDTO> getUser(@PathVariable String phoneNumber) {
-        Optional<UserDTO> user = service.getUserByPhone(phoneNumber);
+    public ResponseEntity<UseResponse> getUser(@PathVariable String phoneNumber) {
+        Optional<UseResponse> user = service.getUserByPhone(phoneNumber);
         return user.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 

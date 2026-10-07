@@ -37,27 +37,14 @@ public class ObjectDetectionService {
 
     private static final Logger logger = LoggerFactory.getLogger(ObjectDetectionService.class);
     private static final DecimalFormat df = new DecimalFormat("#.#");
-
-    // ================================================================
-    // UNIVERSAL DETECTION CONSTANTS
-    // ================================================================
-
     private static final String DEFAULT_FOCUS = "General";
     private static final String AI_MODE_GEMINI = "Gemini";
     private static final String AI_MODE_OPENAI = "OpenAI";
     private static final String AI_MODE_UNAVAILABLE = "Unavailable";
-
-    /** Minimum confidence for any detection to be kept. */
     private static final double MIN_CONFIDENCE = 0.20;
-
-    /** Maximum number of detections returned per image. */
     private static final int MAX_DETECTIONS = 10;
-
-    /** Max output tokens for the AI response. */
     private static final int MAX_OUTPUT_TOKENS = 2048;
-
     public List<Boolean> getDjlEngines() {
-        // Make sure Engine.getAllEngines() really returns List<Engine>
         return Engine.getAllEngines()
                 .stream()
                 .map(engine -> engine.regionMatches(0, "DLJ", 0, 3)) // explicit lambda avoids confusion

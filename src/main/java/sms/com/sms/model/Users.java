@@ -46,6 +46,14 @@ public class Users implements UserDetails {
     @Column(nullable = false)
     private String farmLocation;
 
+    public BigDecimal getAITokenBalance() {
+        return AITokenBalance == null ? BigDecimal.ZERO : AITokenBalance;
+    }
+
+    public BigDecimal getsMSTokenBalance() {
+        return sMSTokenBalance == null ? BigDecimal.ZERO : sMSTokenBalance;
+    }
+
     public boolean getIsVerified() {
         return isVerified;
     }
