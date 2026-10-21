@@ -289,6 +289,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                 .farmName(user.get().getFarmName())
                 .farmLocation(user.get().getFarmLocation())
                 .farmSize(user.get().getFarmSize())
+                .AITokenBalance(user.get().getAITokenBalance())
                 .sMSTokenBalance(user.get().getsMSTokenBalance())
                // .notificationPreference(user.get().getNotificationPreference())
                 .build();
