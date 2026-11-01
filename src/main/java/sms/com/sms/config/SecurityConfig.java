@@ -121,6 +121,7 @@ public class SecurityConfig {
                 "http://localhost:*",
                 "http://127.0.0.1:*",
                 "http://192.168.*:*",
+                "https://fireeyes-v2.vercel.app",
                 "https://fireeyes-detector-ib01.onrender.com",
                 "https://crop-disease-detector-8nqt.onrender.com",
                 "https://crop-detect-aq7x.onrender.com"
