@@ -4,9 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import sms.com.sms.ObjectDetectionService;
+import sms.com.sms.enums.Language;
 import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
 import sms.com.sms.repository.GasDetectorRepository;
@@ -52,7 +54,8 @@ public class DetectionController {
             @RequestParam(value = "cropType", required = false) String legacyCropType,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "deviceId", required = false) String deviceId,
-            @RequestParam(value = "location", required = false) String location) {
+            @RequestParam(value = "location", required = false) String location,
+            @RequestParam(value = "language", required = false) String languageCode) {
 
         // ---- validation ----
         if (image == null || image.isEmpty()) {
@@ -72,28 +75,59 @@ public class DetectionController {
                         : isNotBlank(legacyCropType) ? legacyCropType.trim()
                           : DEFAULT_FOCUS;
 
+        Language language;
         try {
-            ResponseEntity<Map<String, Object>> tokenCheck = deductAiTokenForPrompt(email, deviceId);
-            if (tokenCheck != null) {
-                return tokenCheck;
+            language = isNotBlank(languageCode)
+                    ? Language.fromCode(languageCode)
+                    : getDetectorLanguage(deviceId);
+        } catch (IllegalArgumentException e) {
+            return badRequest("Unsupported language: " + languageCode + ". Use en, yo, or fr.");
+        }
+
+        try {
+            Users user = getAuthenticatedUser();
+            if (user == null) {
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false,
+                        "error", "Please sign in to analyze an image."));
+            }
+            if (user.getAITokenBalance().compareTo(BigDecimal.TEN) < 0) {
+                return ResponseEntity.status(402).body(Map.of(
+                        "success", false,
+                        "error", "Insufficient AI token balance. Please top up your AITokenBalance."));
             }
 
             List<ObjectDetectionService.DetectionResult> results =
                     detectionService.detectEverything(
                             image.getBytes(),
                             effectiveFocus,
+                            language,
                             FRONTEND_MAX_GEMINI_ATTEMPTS);
+
+            if (results.isEmpty()) {
+                return serverError("The analysis did not return any results");
+            }
+            if (usersRepository.deductAiTokens(user.getPhonenumber(), BigDecimal.TEN) == 0) {
+                return ResponseEntity.status(402).body(Map.of(
+                        "success", false,
+                        "error", "Insufficient AI token balance. Please top up your AITokenBalance."));
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("count", results.size());
             response.put("focus", effectiveFocus);
+            response.put("language", language.getCode());
+            response.put("summary", results.get(0).summary);
             response.put("cropType", effectiveFocus); // legacy alias
             response.put("aiMode", detectionService.getLastAiModeUsed());
             response.put("aiStack", detectionService.getAiStackInfo());
             response.put("availableAiModes", detectionService.getInstalledAiModes());
             response.put("djlEngines", detectionService.getDjlEngines());
             response.put("results", results);
+            response.put("aiTokenBalance", usersRepository.findByPhonenumber(user.getPhonenumber())
+                    .orElseThrow(() -> new IllegalStateException("User disappeared after token deduction"))
+                    .getAITokenBalance());
 
             if (!results.isEmpty()) {
                 ObjectDetectionService.DetectionResult top = results.get(0);
@@ -138,48 +172,21 @@ public class DetectionController {
         }
     }
 
-    private ResponseEntity<Map<String, Object>> deductAiTokenForPrompt(String email, String deviceId) {
-        Users user = resolveAuthenticatedUserOrLookup(email, deviceId);
-        if (user == null) {
-            return null;
-        }
-
-        BigDecimal balance = user.getAITokenBalance() == null ? BigDecimal.ZERO : user.getAITokenBalance();
-        BigDecimal deduction = BigDecimal.TEN;
-        if (balance.compareTo(deduction) < 0) {
-            Map<String, Object> body = new HashMap<>();
-            body.put("success", false);
-            body.put("error", "Insufficient AI token balance. Please top up your AITokenBalance.");
-            return ResponseEntity.status(402).body(body);
-        }
-
-        user.setAITokenBalance(balance.subtract(deduction));
-        usersRepository.save(user);
-        return null;
-    }
-
-    private Users resolveAuthenticatedUserOrLookup(String email, String deviceId) {
-        Object principal = SecurityContextHolder.getContext() != null
-                ? SecurityContextHolder.getContext().getAuthentication() != null
-                        ? SecurityContextHolder.getContext().getAuthentication().getPrincipal()
-                        : null
-                : null;
-
-        if (principal instanceof Users) {
-            return (Users) principal;
-        }
-
-        if (isNotBlank(email)) {
-            Users byEmail = usersRepository.findByEmail(email.trim()).orElse(null);
-            if (byEmail != null) {
-                return byEmail;
+    private Language getDetectorLanguage(String deviceId) {
+        if (isNotBlank(deviceId)) {
+            CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId.trim());
+            if (detector != null && detector.getLanguage() != null) {
+                return detector.getLanguage();
             }
         }
+        return Language.EN;
+    }
 
-        if (isNotBlank(deviceId)) {
-            return usersRepository.findByPhonenumber(deviceId.trim()).orElse(null);
+    private Users getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Users) {
+            return (Users) authentication.getPrincipal();
         }
-
         return null;
     }
 

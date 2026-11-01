@@ -621,6 +621,18 @@
             </div>
 
             <div class="field-wrap">
+                <label class="stat-label" for="languageSelect" style="display:block; margin-bottom:6px;">
+                    AI response language
+                </label>
+                <select id="languageSelect" class="field-input" onchange="onLanguageChange(this.value)">
+                    <option value="en">English</option>
+                    <option value="yo">Yoruba</option>
+                    <option value="fr">French</option>
+                </select>
+                <div class="field-hint">Applies to AI descriptions, summaries, and recommendations.</div>
+            </div>
+
+            <div class="field-wrap">
                 <label class="stat-label" for="detectionIntervalInput" style="display:block; margin-bottom:6px;">
                     Detection interval (ms)
                 </label>
@@ -819,6 +831,10 @@
 
     const LOCATION  = "Field_A";
     let   FOCUS     = "General";   // universal by default
+    const LANGUAGE_STORAGE_KEY = "smartEyes.aiLanguage";
+    const SUPPORTED_LANGUAGES = ["en", "yo", "fr"];
+    let AI_LANGUAGE = localStorage.getItem(LANGUAGE_STORAGE_KEY) || "en";
+    if (!SUPPORTED_LANGUAGES.includes(AI_LANGUAGE)) AI_LANGUAGE = "en";
 
     /* ----------------------------------------------------------------
      *  MAC ADDRESS
@@ -1215,12 +1231,19 @@
             macAddress: MAC_ADDRESS || "",   // <-- MAC field
             location: LOCATION,
             focus: FOCUS,
+            language: AI_LANGUAGE,
             cropType: FOCUS                  // legacy alias
         };
 
         socket.send(JSON.stringify(message));
+        socket.send(JSON.stringify({
+            type: "set_language",
+            language: AI_LANGUAGE,
+            deviceId: id,
+            device_id: id
+        }));
         addLog("info",
-            `Registered device (focus: ${FOCUS}${MAC_ADDRESS ? ", MAC " + MAC_ADDRESS : ""})`);
+            `Registered device (focus: ${FOCUS}, language: ${AI_LANGUAGE}${MAC_ADDRESS ? ", MAC " + MAC_ADDRESS : ""})`);
     }
 
     function onFocusChange(value) {
@@ -1238,6 +1261,27 @@
             addLog("info", "Focus changed → " + FOCUS);
             showToast("AI focus: " + FOCUS, "info");
         }
+    }
+
+    function onLanguageChange(value) {
+        if (!SUPPORTED_LANGUAGES.includes(value)) {
+            showToast("Select a supported AI language", "error");
+            $("languageSelect").value = AI_LANGUAGE;
+            return;
+        }
+
+        AI_LANGUAGE = value;
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, AI_LANGUAGE);
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: "set_language",
+                language: AI_LANGUAGE,
+                deviceId: getDeviceId(),
+                device_id: getDeviceId()
+            }));
+        }
+        addLog("info", "AI response language changed to " + AI_LANGUAGE);
+        showToast("AI language: " + $("languageSelect").selectedOptions[0].text, "info");
     }
 
     function onDetectionIntervalChange(value) {
@@ -1752,6 +1796,7 @@
             formData.append("macAddress", MAC_ADDRESS || "");
             formData.append("focus", FOCUS);
             formData.append("cropType", FOCUS);     // legacy alias
+            formData.append("language", AI_LANGUAGE);
 
             const response = await fetch(API_URL + "/api/detect/image", {
                 method: "POST",
@@ -1814,6 +1859,7 @@
     $("cropTypeValue").textContent = FOCUS;
     $("headerFocusPill").textContent = "Focus: " + FOCUS;
     $("detectionIntervalInput").value = DETECTION_INTERVAL_MS;
+    $("languageSelect").value = AI_LANGUAGE;
 
     // MAC + DEVICE_ID initialization
     updateMacUI();

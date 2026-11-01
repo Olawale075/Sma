@@ -22,7 +22,7 @@ if (!to.startsWith("234")) {
         }
         SmsRequest smsRequest = new SmsRequest();
         smsRequest.setTo(to);
-        smsRequest.setFrom("N-Alert");
+        smsRequest.setFrom("FireEye");
         smsRequest.setSms(message);
         smsRequest.setType("plain");
         smsRequest.setChannel("dnd");

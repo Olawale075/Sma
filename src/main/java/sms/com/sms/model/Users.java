@@ -75,7 +75,8 @@ public class Users implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
-    private BigDecimal AITokenBalance;
+    @Builder.Default
+    private BigDecimal AITokenBalance = BigDecimal.valueOf(100);
     private BigDecimal sMSTokenBalance;
     @Column(nullable = false)
     private String password;

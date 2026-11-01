@@ -1,4 +1,4 @@
-function TreatmentCard(){
+function TreatmentCard({ treatment }){
 
     return(
 
@@ -10,13 +10,7 @@ function TreatmentCard(){
 
             </h3>
 
-            <p className="text-gray-600 leading-8">
-
-                Apply Mancozeb or Copper fungicide at 2.5 g/L.
-                Repeat after seven days.
-                Avoid spraying within six hours before rainfall.
-
-            </p>
+            <p className="text-gray-600 leading-8">{treatment || "No treatment recommendation returned."}</p>
 
         </div>
 

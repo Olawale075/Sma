@@ -44,6 +44,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/api/detect/**"
+                        ).authenticated()
+                        .requestMatchers(
                                 "/user/sendOtp/**",
                                 "/user/CreateUser/**",
                                 "/user/auth/login",
@@ -63,9 +66,7 @@ public class SecurityConfig {
                                 "/index.html",
                                 "/",
                                 "/css/**",
-                                "/js/**",
-                                "/api/detect/**"
-
+                                "/js/**"
                         )
                         .permitAll()
                         .requestMatchers("/user/admin/**").hasAuthority("ROLE_ADMIN")

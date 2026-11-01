@@ -1,20 +1,23 @@
 import { useRef, useState } from "react";
 import { FaUpload, FaCamera } from "react-icons/fa";
 
-function UploadCard() {
+function UploadCard({ onAnalyze, isAnalyzing, error }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
 
     if (!file) return;
 
+    if (selectedImage) {
+      URL.revokeObjectURL(selectedImage);
+    }
     setSelectedImage(URL.createObjectURL(file));
-
-    console.log(file);
+    setSelectedFile(file);
   };
 
   return (
@@ -65,6 +68,17 @@ function UploadCard() {
 
         </div>
 
+        {selectedFile && (
+          <button
+            type="button"
+            onClick={() => onAnalyze(selectedFile)}
+            disabled={isAnalyzing}
+            className="mt-5 bg-green-700 text-white px-8 py-3 rounded-xl hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isAnalyzing ? "Analyzing..." : "Analyze image (10 tokens)"}
+          </button>
+        )}
+
         {/* Browse File Input */}
         <input
           ref={fileInputRef}
@@ -89,6 +103,7 @@ function UploadCard() {
       <p className="mt-6 text-gray-500">
         Tip: Capture the affected leaf in daylight filling most of the frame.
       </p>
+      {error && <p role="alert" className="mt-4 text-red-600">{error}</p>}
 
     </div>
   );

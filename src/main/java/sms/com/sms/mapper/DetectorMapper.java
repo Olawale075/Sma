@@ -27,6 +27,7 @@ public class DetectorMapper {
             
             return DetectorDTO.builder()
                     .macAddress(detector.getMacAddress())
+                    .language(detector.getLanguage())
                     .status(detector.getStatus())
                     .co2(detector.getCo2())
                     .co2Threshold(detector.getCo2Threshold())
@@ -57,6 +58,7 @@ public class DetectorMapper {
             
             return CropDeceaseDetector.builder()
                     .macAddress(dto.getMacAddress())
+                    .language(dto.getLanguage())
                     .status(dto.getStatus())
                     .co2(dto.getCo2())
                     .co2Threshold(dto.getCo2Threshold())
@@ -112,7 +114,8 @@ public class DetectorMapper {
 
          if (dto.getCo2() != null) entity.setCo2(dto.getCo2());
             if (dto.getStatus() != null) entity.setStatus(dto.getStatus());
-            if (dto.getCo2Threshold() != null) entity.setCo2Threshold(dto.getCo2Threshold());
+         if (dto.getLanguage() != null) entity.setLanguage(dto.getLanguage());
+         if (dto.getCo2Threshold() != null) entity.setCo2Threshold(dto.getCo2Threshold());
             
             if (dto.getWifiSsid() != null && !dto.getWifiSsid().trim().isEmpty()) {
                 entity.setWifiSsid(dto.getWifiSsid().trim());

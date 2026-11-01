@@ -165,7 +165,10 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             detector.setWifiPassword(updatedData.getWifiPassword().trim());
             log.info("Updated WiFi Password");
         }
-
+if (updatedData.getLanguage() != null ) {
+            detector.setLanguage(updatedData.getLanguage());
+            log.info("Updated Language: {}", updatedData.getLanguage());
+        }
         CropDeceaseDetector saved = detectorRepository.save(detector);
         log.info(" Detector configuration updated successfully");
         

@@ -23,6 +23,8 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 import sms.com.sms.ObjectDetectionService;
+import sms.com.sms.enums.Language;
+import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.repository.GasDetectorRepository;
 
 import java.io.IOException;
@@ -93,6 +95,9 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
             new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, String> deviceFocus =
+            new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<String, Language> deviceLanguages =
             new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, AtomicBoolean> detectionRunning =
@@ -235,6 +240,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                     session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT));
             deviceLocations.putIfAbsent(effectiveDeviceId, "Unknown");
             deviceFocus.putIfAbsent(effectiveDeviceId, "General");
+            deviceLanguages.putIfAbsent(effectiveDeviceId, getStoredLanguage(effectiveDeviceId));
             detectionRunning.computeIfAbsent(effectiveDeviceId, k -> new AtomicBoolean(false));
             frameCounters.computeIfAbsent(effectiveDeviceId, k -> new AtomicLong());
             log.info("Camera connection identified from path: {} -> session {}", effectiveDeviceId, sessionId);
@@ -278,6 +284,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                 case "status":         sendStatus(session);                  break;
                 case "get_sensor":     handleGetSensor(session, json);       break;
                 case "sensor_data":    handleSensorData(session, json);      break;
+                case "set_language":   handleSetLanguage(session, json);    break;
                 case "flash_on":
                 case "flash_off":
                 case "set_resolution":
@@ -354,6 +361,14 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                 json.path("cropType").asText(null),
                 "General"
         );
+        Language language;
+        try {
+            String languageCode = firstNonBlank(json.path("language").asText(null), null);
+            language = languageCode == null ? getStoredLanguage(deviceId) : Language.fromCode(languageCode);
+        } catch (IllegalArgumentException e) {
+            sendError(session, "Unsupported language. Use en, yo, or fr.");
+            return;
+        }
 
         boolean isCamera =
                 deviceType.equalsIgnoreCase("ESP32-CAM") ||
@@ -386,6 +401,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
 
             deviceLocations.put(deviceId, location);
             deviceFocus.put(deviceId, focus);
+            deviceLanguages.put(deviceId, language);
 
             detectionRunning.computeIfAbsent(deviceId, k -> new AtomicBoolean(false));
             frameCounters.computeIfAbsent(deviceId, k -> new AtomicLong());
@@ -404,6 +420,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
             response.put("role",      "camera");
             response.put("location",  location);
             response.put("focus",     focus);
+            response.put("language",  language.getCode());
             response.put("message",   "Camera registered successfully");
             response.put("timestamp", Instant.now().toString());
 
@@ -429,6 +446,47 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
 
         sendJson(safeDashboard, response);
         sendCurrentStatus(safeDashboard);
+    }
+
+    private void handleSetLanguage(WebSocketSession session, JsonNode json) {
+        String deviceId = getRequestedDevice(session, json);
+        String languageCode = firstNonBlank(json.path("language").asText(null), null);
+        if (deviceId == null || deviceId.isBlank()) {
+            sendError(session, "deviceId is required");
+            return;
+        }
+        if (languageCode == null) {
+            sendError(session, "language is required");
+            return;
+        }
+
+        Language language;
+        try {
+            language = Language.fromCode(languageCode);
+        } catch (IllegalArgumentException e) {
+            sendError(session, "Unsupported language. Use en, yo, or fr.");
+            return;
+        }
+
+        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId);
+        if (detector != null) {
+            detector.setLanguage(language);
+            gasDetectorRepository.save(detector);
+        }
+        deviceLanguages.put(deviceId, language);
+
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "language_updated");
+        response.put("deviceId", deviceId);
+        response.put("language", language.getCode());
+        sendJson(session, response);
+    }
+
+    private Language getStoredLanguage(String deviceId) {
+        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId);
+        return detector != null && detector.getLanguage() != null
+                ? detector.getLanguage()
+                : Language.EN;
     }
 
     /* ============================================================
@@ -733,6 +791,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
 
             String location = deviceLocations.getOrDefault(deviceId, "Unknown");
             String focus    = deviceFocus.getOrDefault(deviceId, "General");
+            Language language = deviceLanguages.computeIfAbsent(deviceId, this::getStoredLanguage);
 
             byte[] frameForAI = frame.clone();
 
@@ -742,7 +801,7 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                             deviceId, frameForAI.length);
 
                     objectDetectionService.processAndSendDetection(
-                            frameForAI, deviceId, location, focus);
+                            frameForAI, deviceId, location, focus, language);
 
                 } catch (Exception e) {
                     log.error("AI detection failed for device {}", deviceId, e);
@@ -771,6 +830,9 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
             camera.put("deviceId",  deviceId);
             camera.put("location",  deviceLocations.getOrDefault(deviceId, "Unknown"));
             camera.put("focus",     deviceFocus.getOrDefault(deviceId, "General"));
+            camera.put("language", deviceLanguages
+                    .computeIfAbsent(deviceId, this::getStoredLanguage)
+                    .getCode());
             camera.put("connected", isCameraConnected(deviceId));
             camera.put("frames",    frameCounters
                     .getOrDefault(deviceId, new AtomicLong(0)).get());

@@ -12,6 +12,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.hibernate.annotations.DynamicUpdate;
+import sms.com.sms.enums.Language;
+import sms.com.sms.enums.LanguageCodeConverter;
 
 @Data
 @Builder
@@ -30,12 +32,21 @@ public class CropDeceaseDetector {
     @Id
     @Column(name = "mac_address", nullable = false, unique = true)
     private String macAddress;
-
+private Language ailanguage;
     // ==================================================
     // SENSOR DATA
     // ==================================================
 
+    @Column(name = "language")
+    @Convert(converter = LanguageCodeConverter.class)
+    private Language language;
+    public Language getLanguage() {
+        return language;
+    }
 
+    public void setLanguage(Language language) {
+        this.language = language;
+    }
     @Column(name = "co2")
     private Double co2;
 

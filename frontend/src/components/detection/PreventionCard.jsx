@@ -1,16 +1,6 @@
 import { FaCheckCircle } from "react-icons/fa";
 
-function PreventionCard(){
-
-    const tips=[
-
-        "Rotate with a non-host crop next season",
-
-        "Improve row spacing to increase airflow",
-
-        "Remove and destroy infected crop residue"
-
-    ]
+function PreventionCard({ tips = [] }){
 
     return(
 
@@ -23,8 +13,7 @@ function PreventionCard(){
             </h3>
 
             <div className="space-y-4">
-
-                {tips.map((tip)=>(
+                {tips.length ? tips.map((tip)=>(
 
                     <div key={tip} className="flex items-center gap-3">
 
@@ -34,7 +23,7 @@ function PreventionCard(){
 
                     </div>
 
-                ))}
+                )) : <p className="text-gray-600">No preventive measures returned.</p>}
 
             </div>
 

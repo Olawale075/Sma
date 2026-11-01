@@ -1,6 +1,8 @@
 package sms.com.sms.model;
 
 import jakarta.persistence.*;
+import sms.com.sms.enums.Language;
+import sms.com.sms.enums.LanguageCodeConverter;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +27,10 @@ public class DetectorReading {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "ai_language")
+    @Convert(converter = LanguageCodeConverter.class)
+    private Language aiLanguage;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mac_address") // nullable by default so readings can be saved without linking

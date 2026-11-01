@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import sms.com.sms.config.CameraWebSocketHandler;
+import sms.com.sms.dto.DetectorDTO;
+import sms.com.sms.enums.Language;
 
 import java.io.IOException;
 import java.net.URI;
@@ -50,30 +52,25 @@ public class ObjectDetectionService {
                 .map(engine -> engine.regionMatches(0, "DLJ", 0, 3)) // explicit lambda avoids confusion
                 .collect(Collectors.toList());
     }
-
-    /**
-     * Domain categories the AI can classify into.
-     */
+     DetectorDTO detectorDto =new DetectorDTO();
+    String ln = String.valueOf(detectorDto.getLanguage());
     public enum Domain {
-        LIVING_THING,   // people, animals, insects, birds, fish
-        PLANT,          // crops, trees, flowers, leaves (incl. diseases)
-        FOOD,           // fruits, vegetables, cooked dishes, drinks
-        VEHICLE,        // cars, bikes, trucks, boats, planes
-        BUILDING,       // houses, bridges, structures
-        ELECTRONICS,    // phones, laptops, TVs, appliances
-        FURNITURE,      // chairs, tables, beds
-        CLOTHING,       // shirts, shoes, hats
-        TOOL,           // hammers, hoes, machines
-        NATURE,         // sky, water, mountains, soil, clouds
-        SCENE,          // indoor, outdoor, street, market, farm
-        DOCUMENT,       // text, signs, labels, QR codes
-        MEDICAL,        // wounds, skin conditions, x-rays (non-diagnostic)
+        LIVING_THING,
+        PLANT,
+        FOOD,
+        VEHICLE,
+        BUILDING,
+        ELECTRONICS,
+        FURNITURE,
+        CLOTHING,
+        TOOL,
+        NATURE,
+        SCENE,
+        DOCUMENT,
+        MEDICAL,
         UNKNOWN
     }
 
-    /**
-     * Severity is only meaningful for health/disease/injury detections.
-     */
     public enum Severity {
         CRITICAL("Immediate action required"),
         HIGH("Severe - act soon"),
@@ -85,7 +82,7 @@ public class ObjectDetectionService {
         Severity(String description) { this.description = description; }
     }
 
-    // Thread pool for async detection
+
     private final ExecutorService detectionExecutor = Executors.newFixedThreadPool(
             Math.max(2, Runtime.getRuntime().availableProcessors() - 1)
     );
@@ -130,7 +127,7 @@ public class ObjectDetectionService {
             .connectTimeout(Duration.ofSeconds(30))
             .build();
 
-    // State
+
     private volatile boolean modelLoaded = false;
     private volatile String lastAiModeUsed = AI_MODE_UNAVAILABLE;
 
@@ -144,13 +141,10 @@ public class ObjectDetectionService {
         this.webSocketHandler = webSocketHandler;
     }
 
-    // ================================================================
-    // INIT
-    // ================================================================
 
     @PostConstruct
     public void init() {
-        logger.info("🌍 Initializing UNIVERSAL AI detection service...");
+        logger.info(" Initializing UNIVERSAL AI detection service...");
         logger.info("   Gemini model: {}", geminiModel);
         logger.info("   Gemini endpoint: {}", geminiEndpoint);
         logger.info("   Gemini retries: {}", geminiMaxRetries);
@@ -194,15 +188,12 @@ public class ObjectDetectionService {
 
         startCacheCleanup();
 
-        logger.info("✅ ObjectDetectionService initialized.");
+        logger.info("ObjectDetectionService initialized.");
         logger.info("   Model loaded: {}", modelLoaded);
         logger.info("   AI providers enabled: Gemini={}, OpenAI={}", geminiReady, openAiReady);
         logger.info("   Installed AI modes: {}", String.join(", ", getInstalledAiModes()));
     }
 
-    // ================================================================
-    // MAIN DETECTION METHODS
-    // ================================================================
 
     public void processAndSendDetection(byte[] imageData) {
         processAndSendDetection(imageData, null, null, DEFAULT_FOCUS);
@@ -210,6 +201,11 @@ public class ObjectDetectionService {
 
     /** Legacy alias. focus may be any hint like "General", "Dog", "Plant", "Food", "Cassava Leaf". */
     public void processAndSendDetection(byte[] imageData, String deviceId, String location, String focus) {
+        processAndSendDetection(imageData, deviceId, location, focus, Language.EN);
+    }
+
+    public void processAndSendDetection(byte[] imageData, String deviceId, String location, String focus,
+                                        Language language) {
         if (imageData == null || imageData.length == 0) {
             logger.warn("Empty image data received from device: {}", deviceId);
             return;
@@ -220,7 +216,8 @@ public class ObjectDetectionService {
                 long startTime = System.nanoTime();
                 String normalizedFocus = normalizeFocus(focus);
 
-                List<DetectionResult> results = detectEverything(imageData, normalizedFocus);
+                List<DetectionResult> results = detectEverything(
+                        imageData, normalizedFocus, language, null);
 
                 long detectionTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
 
@@ -302,7 +299,13 @@ public class ObjectDetectionService {
     }
 
     public List<DetectionResult> detectEverything(byte[] imageData, String focus, Integer maxAttemptsOverride) throws IOException {
+        return detectEverything(imageData, focus, Language.EN, maxAttemptsOverride);
+    }
+
+    public List<DetectionResult> detectEverything(byte[] imageData, String focus, Language language,
+                                                 Integer maxAttemptsOverride) throws IOException {
         String normalizedFocus = normalizeFocus(focus);
+        Language responseLanguage = language == null ? Language.EN : language;
 
         if (!modelLoaded) {
             throw new IllegalStateException(
@@ -320,7 +323,8 @@ public class ObjectDetectionService {
             try {
                 lastAiModeUsed = AI_MODE_GEMINI;
                 logger.info("Running detection with AI mode: {}", lastAiModeUsed);
-                String responseText = callGeminiVisionApi(imageData, normalizedFocus, maxAttemptsOverride);
+                String responseText = callGeminiVisionApi(
+                        imageData, normalizedFocus, responseLanguage, maxAttemptsOverride);
                 return parseDetections(responseText, normalizedFocus);
             } catch (IOException geminiException) {
                 if (!isOpenAiConfigured()) throw geminiException;
@@ -330,7 +334,8 @@ public class ObjectDetectionService {
 
         lastAiModeUsed = AI_MODE_OPENAI;
         logger.info("Running detection with AI mode: {}", lastAiModeUsed);
-        String responseText = callOpenAIVisionApi(imageData, normalizedFocus, maxAttemptsOverride);
+        String responseText = callOpenAIVisionApi(
+                imageData, normalizedFocus, responseLanguage, maxAttemptsOverride);
         return parseDetections(responseText, normalizedFocus);
     }
 
@@ -340,9 +345,6 @@ public class ObjectDetectionService {
         }
     }
 
-    // ================================================================
-    // PROVIDER CHECKS / INFO
-    // ================================================================
 
     private boolean isGeminiConfigured() {
         return geminiApiKey != null && !geminiApiKey.isBlank();
@@ -391,11 +393,9 @@ public class ObjectDetectionService {
         return aiStack;
     }
 
-    // ================================================================
-    // GEMINI API CALL
-    // ================================================================
 
-    private String callGeminiVisionApi(byte[] imageData, String focus, Integer maxAttemptsOverride) throws IOException {
+    private String callGeminiVisionApi(byte[] imageData, String focus, Language language,
+                                       Integer maxAttemptsOverride) throws IOException {
         try {
             String mimeType = detectImageMimeType(imageData);
             String base64Image = Base64.getEncoder().encodeToString(imageData);
@@ -405,7 +405,7 @@ public class ObjectDetectionService {
             inlineData.put("data", base64Image);
 
             Map<String, Object> textPart = new LinkedHashMap<>();
-            textPart.put("text", buildPrompt(focus));
+            textPart.put("text", buildPrompt(focus, language));
 
             Map<String, Object> imagePart = new LinkedHashMap<>();
             imagePart.put("inline_data", inlineData);
@@ -490,7 +490,8 @@ public class ObjectDetectionService {
     // OPENAI API CALL
     // ================================================================
 
-    private String callOpenAIVisionApi(byte[] imageData, String focus, Integer maxAttemptsOverride) throws IOException {
+    private String callOpenAIVisionApi(byte[] imageData, String focus, Language language,
+                                       Integer maxAttemptsOverride) throws IOException {
         try {
             String mimeType = detectImageMimeType(imageData);
             String base64Image = Base64.getEncoder().encodeToString(imageData);
@@ -502,7 +503,7 @@ public class ObjectDetectionService {
                     "messages", List.of(Map.of(
                             "role", "user",
                             "content", List.of(
-                                    Map.of("type", "text", "text", buildPrompt(focus)),
+                                    Map.of("type", "text", "text", buildPrompt(focus, language)),
                                     Map.of("type", "image_url",
                                             "image_url", Map.of("url",
                                                     "data:" + mimeType + ";base64," + base64Image))
@@ -679,14 +680,16 @@ public class ObjectDetectionService {
     // UNIVERSAL PROMPT
     // ================================================================
 
-    private String buildPrompt(String focus) {
+    private String buildPrompt(String focus, Language language) {
         return String.format(
                 "You are a universal visual recognition assistant. " +
                         "Identify EVERYTHING visible in the image: people, animals, plants, food, vehicles, " +
                         "buildings, electronics, furniture, clothing, tools, natural scenes, text, medical signs, and more. " +
                         "If a plant or crop is present, also detect any diseases, pests, or nutrient deficiencies. " +
                         "If a human or animal is present, describe what they are doing and any visible health signs. " +
-                        "User focus hint: '%s' (may be 'General').\n\n" +
+                        "User focus hint: '%s' (may be 'General').\n" +
+                        "Write all human-readable text values in %s. Keep JSON keys, domain values, " +
+                        "health status values, and severity values exactly as specified in English.\n\n" +
 
                         "Respond with ONLY valid JSON, no markdown, no code fences, no explanation. " +
                         "Use this exact schema:\n" +
@@ -716,7 +719,17 @@ public class ObjectDetectionService {
                         "- Use specific labels, not just 'object' or 'thing'.\n" +
                         "- If nothing is recognizable, return an empty items array.\n",
                 focus == null || focus.isBlank() ? DEFAULT_FOCUS : focus,
+                getLanguageName(language),
                 MAX_DETECTIONS);
+    }
+
+    private String getLanguageName(Language language) {
+        if (language == null) return "English";
+        return switch (language) {
+            case EN -> "English";
+            case YO -> "Yoruba";
+            case FR -> "French";
+        };
     }
 
     // ================================================================
@@ -729,8 +742,10 @@ public class ObjectDetectionService {
             Object parsed = objectMapper.readValue(jsonText, Object.class);
 
             List<DetectionResult> detections = new ArrayList<>();
+            String summary = null;
 
             if (parsed instanceof Map<?, ?> responseMap) {
+                summary = toNonBlankString(responseMap.get("summary"));
                 Object items = responseMap.get("items");
                 if (items instanceof List<?> list) {
                     for (Object item : list) {
@@ -753,6 +768,7 @@ public class ObjectDetectionService {
             }
 
             detections.sort((a, b) -> Double.compare(getFocusScore(b, focus), getFocusScore(a, focus)));
+            if (summary != null) detections.get(0).summary = summary;
             return detections.stream().limit(MAX_DETECTIONS).collect(Collectors.toList());
 
         } catch (IOException e) {
@@ -1186,6 +1202,9 @@ public class ObjectDetectionService {
 
     private String buildSummary(List<DetectionResult> results) {
         if (results.isEmpty()) return "Nothing recognizable detected.";
+        if (results.get(0).summary != null && !results.get(0).summary.isBlank()) {
+            return results.get(0).summary;
+        }
         DetectionResult top = results.get(0);
         String base = String.format("Detected %d item(s). Most likely: %s (%.0f%%).",
                 results.size(), top.className, top.probability * 100);
@@ -1343,6 +1362,7 @@ public class ObjectDetectionService {
         public String healthStatus = "unknown";
         public Severity severity = Severity.NONE;
         public String conditionName;
+        public String summary;
         public String treatment;
         public List<String> prevention;
         public String whenToAct;

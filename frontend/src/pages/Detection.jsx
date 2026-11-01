@@ -5,8 +5,58 @@ import UploadCard from "../components/detection/UploadCard";
 import PredictionCard from "../components/detection/PredictionCard";
 import { FaBars } from "react-icons/fa";
 
+const API_URL = import.meta.env.VITE_API_URL || "https://crop-disease-detector-8nqt.onrender.com";
+
 function Detection() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [prediction, setPrediction] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function analyzeImage(image) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("Please sign in before analyzing an image.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", image);
+    setIsAnalyzing(true);
+    setError("");
+    setPrediction(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/detect/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const contentType = response.headers.get("content-type");
+      const data = contentType?.includes("application/json")
+        ? await response.json()
+        : await response.text();
+
+      if (!response.ok) {
+        throw new Error(typeof data === "object" ? data.error || data.message : data);
+      }
+
+      setPrediction(data);
+      const storedUser = localStorage.getItem("user");
+      if (storedUser && data.aiTokenBalance != null) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ ...JSON.parse(storedUser), AITokenBalance: data.aiTokenBalance })
+        );
+        window.dispatchEvent(new Event("userUpdated"));
+      }
+    } catch (analysisError) {
+      setError(analysisError.message || "Image analysis failed.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#F7FBF8]">
 
@@ -41,9 +91,9 @@ function Detection() {
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
 
-            <UploadCard />
+            <UploadCard onAnalyze={analyzeImage} isAnalyzing={isAnalyzing} error={error} />
 
-            <PredictionCard />
+            <PredictionCard prediction={prediction} />
 
           </div>
 
