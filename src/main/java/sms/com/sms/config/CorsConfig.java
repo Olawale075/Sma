@@ -22,6 +22,7 @@ public class CorsConfig {
                 "http://192.168.*:*",
                 "http://*.ngrok.io",
                 "https://*.ngrok.io",
+                "https://fireeyes-detector-ib01.onrender.com",
                 "https://crop-disease-detector-8nqt.onrender.com",
                 "https://crop-detect-aq7x.onrender.com"
         ));

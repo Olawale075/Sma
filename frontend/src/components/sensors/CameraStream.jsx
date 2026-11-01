@@ -19,8 +19,8 @@ const CameraStream = forwardRef(function CameraStream(
 
   // SERVER CONFIGURATION
 
-  const WS_URL = "wss://crop-disease-detector-8nqt.onrender.com/camera-stream";
-  const SERVER_HOST = "crop-disease-detector-8nqt.onrender.com";
+  const WS_URL = "wss://fireeyes-detector-ib01.onrender.com/camera-stream";
+  const SERVER_HOST = "fireeyes-detector-ib01.onrender.com";
   const SERVER_PORT = "443";
 
   

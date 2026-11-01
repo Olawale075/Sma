@@ -122,7 +122,7 @@ function SignupForm() {
       };
 
       console.log("SIGNUP REQUEST");
-      console.log("URL:", "https://crop-disease-detector-8nqt.onrender.com/user/CreateUser");
+      console.log("URL:", "https://fireeyes-detector-ib01.onrender.com/user/CreateUser");
       console.log("Payload:", signupData);
 
       const response = await signup(signupData);

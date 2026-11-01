@@ -1,4 +1,4 @@
-const API_URL = "https://crop-disease-detector-8nqt.onrender.com";
+const API_URL = "https://fireeyes-detector-ib01.onrender.com";
 
 // LOGIN
 export async function login(phoneNumber, password) {

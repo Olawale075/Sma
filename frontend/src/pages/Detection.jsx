@@ -5,7 +5,7 @@ import UploadCard from "../components/detection/UploadCard";
 import PredictionCard from "../components/detection/PredictionCard";
 import { FaBars } from "react-icons/fa";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://crop-disease-detector-8nqt.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://fireeyes-detector-ib01.onrender.com";
 
 function Detection() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
