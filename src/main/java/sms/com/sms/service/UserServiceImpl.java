@@ -160,12 +160,12 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                return ResponseEntity.badRequest().body("OTP is required");
            }
             // Uncomment this when ready
-            // if (!otpService.verifyOtp(phoneNumber, request.getOtp())) {
-            //     return ResponseEntity.badRequest().body("Invalid OTP");
-            // }
-           if (!emailVerificationService.verifyOtp(request.getEmail(), request.getOtp())) {
-               return ResponseEntity.badRequest().body("Invalid OTP for email verification");
-           }
+             if (!otpService.verifyOtp(phoneNumber, request.getOtp())) {
+                 return ResponseEntity.badRequest().body("Invalid OTP");
+             }
+//           if (!emailVerificationService.verifyOtp(request.getEmail(), request.getOtp())) {
+//               return ResponseEntity.badRequest().body("Invalid OTP for email verification");
+//           }
 
            Users user = Users.builder()
                     .phonenumber(phoneNumber)
