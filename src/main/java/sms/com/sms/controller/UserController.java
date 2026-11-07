@@ -162,7 +162,8 @@ private  final EmailVerificationService emailVerificationService;
             return ResponseEntity.status(401).body("Invalid credentials: " + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(403).body("Forbidden: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Login failed due to a server error.");
         }
     }
 
