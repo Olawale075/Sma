@@ -1,6 +1,6 @@
 package sms.com.sms.service;
 import java.time.LocalDateTime;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +12,7 @@ import sms.com.sms.repository.UsersRepository;
 @Service
 public class EmailVerificationService {
 
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
   @Autowired
@@ -32,14 +33,12 @@ public class EmailVerificationService {
         }
 
         // Generate OTP
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
 
-        // Store OTP temporarily
+        if (!sendOtpEmail(email, otp)) {
+            return ResponseEntity.internalServerError().body("Failed to send email verification code");
+        }
         otpStore.put(email, new OtpEntry(otp, LocalDateTime.now().plusMinutes(5)));
-
-        // Send OTP via email
-        String message = "Your email verification code is: " + otp;
-        sendOtpEmail(email,  otp);
 
         return ResponseEntity.ok("Verification code sent");
     }
@@ -51,8 +50,7 @@ public class EmailVerificationService {
     public boolean verifyOtp(String email, String inputOtp) {
         OtpEntry entry = otpStore.get(email);
         if (entry != null && entry.getCode().equals(inputOtp) && LocalDateTime.now().isBefore(entry.getExpiry())) {
-            otpStore.remove(email); // Remove after successful verification
-            return true;
+            return otpStore.remove(email, entry);
         }
         return false;
     }

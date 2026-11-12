@@ -183,7 +183,7 @@ private  final EmailVerificationService emailVerificationService;
   
 
     @Operation(summary = "CreateUser")
-    @PostMapping("CreateUser")
+    @PostMapping("/CreateUser")
     public ResponseEntity<String> createUser(@RequestBody RegisterRequest user) {
 
         return service.verifyOtpAndCreateUser(user);
@@ -230,10 +230,10 @@ public ResponseEntity<?> getUserGasDetails(@RequestParam String phoneNumber, @Re
         return service.sendOtp(to);
     }
 
-    // @GetMapping("/{phone}")
-    // public Users getUserWithDetectors(@PathVariable String phone) {
-    // Users user = usersRepository.findById(phone)
-    // .orElseThrow(() -> new RuntimeException("User not found"));
-    // return user;
-    // }
+//     @GetMapping("/{phone}")
+//     public Users getUserWithDetectors(@PathVariable String phone) {
+//     Users user = usersRepository.findById(phone)
+//     .orElseThrow(() -> new RuntimeException("User not found"));
+//     return user;
+//     }
 }

@@ -49,7 +49,9 @@ public class DetectionController {
 
     @PostMapping("/image")
     public ResponseEntity<?> detectImage(
+
             @RequestParam("image") MultipartFile image,
+
             @RequestParam(value = "focus", required = false) String focus,
             @RequestParam(value = "cropType", required = false) String legacyCropType,
             @RequestParam(value = "email", required = false) String email,

@@ -218,11 +218,6 @@ export async function getCurrentUser() {
 
 // SIGNUP
 export async function signup(userData) {
-  console.log("========== SIGNUP API REQUEST ==========");
-  console.log("URL:", `${API_URL}/user/CreateUser`);
-  console.log("Body:", userData);
-  console.log("========================================");
-
   const response = await fetch(
     `${API_URL}/user/CreateUser`,
     {
@@ -259,6 +254,31 @@ export async function signup(userData) {
   }
 
   return data;
+}
+
+async function requestVerificationCode(path, channel) {
+  const response = await fetch(`${API_URL}${path}`, { method: "POST" });
+  const message = await response.text();
+
+  if (!response.ok || message.startsWith("SMS sending failed:")) {
+    throw new Error(message || `Failed to send ${channel} verification code.`);
+  }
+
+  return message;
+}
+
+export function sendPhoneVerificationCode(phoneNumber) {
+  return requestVerificationCode(
+    `/user/sendOtp/${encodeURIComponent(phoneNumber)}`,
+    "phone"
+  );
+}
+
+export function sendEmailVerificationCode(email) {
+  return requestVerificationCode(
+    `/user/sendOtpToEmail/${encodeURIComponent(email)}`,
+    "email"
+  );
 }
 
 // LOGOUT

@@ -5,7 +5,11 @@ import {
   FaEyeSlash,
   FaArrowRight,
 } from "react-icons/fa";
-import { signup } from "../../services/auth";
+import {
+  sendEmailVerificationCode,
+  sendPhoneVerificationCode,
+  signup,
+} from "../../services/auth";
 
 function SignupForm() {
   const navigate = useNavigate();
@@ -19,10 +23,16 @@ function SignupForm() {
     farmSize: "",
     crop: "",
     password: "",
+    phoneOtp: "",
+    emailOtp: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingPhoneOtp, setSendingPhoneOtp] = useState(false);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
@@ -31,7 +41,11 @@ function SignupForm() {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+      ...(name === "phoneNumber" ? { phoneOtp: "" } : {}),
+      ...(name === "email" ? { emailOtp: "" } : {}),
     }));
+    if (name === "phoneNumber") setPhoneOtpSent(false);
+    if (name === "email") setEmailOtpSent(false);
 
     // Remove error when user starts correcting the form
     if (error) {
@@ -106,6 +120,14 @@ function SignupForm() {
       setError(validationError);
       return;
     }
+    if (!phoneOtpSent || !emailOtpSent) {
+      setError("Request a verification code for both your phone and email.");
+      return;
+    }
+    if (!formData.phoneOtp.trim() || !formData.emailOtp.trim()) {
+      setError("Enter both the phone and email verification codes.");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -119,16 +141,11 @@ function SignupForm() {
         farmName: formData.farmName.trim(),
         farmLocation: formData.farmLocation.trim(),
         farmSize: String(formData.farmSize),
+        otp: formData.phoneOtp.trim(),
+        emailOtp: formData.emailOtp.trim(),
       };
 
-      console.log("SIGNUP REQUEST");
-      console.log("URL:", "https://fireeyes-detector-ib01.onrender.com/user/CreateUser");
-      console.log("Payload:", signupData);
-
-      const response = await signup(signupData);
-
-      console.log("SIGNUP SUCCESS");
-      console.log("Response:", response);
+      await signup(signupData);
 
       // REDIRECT TO LOGIN
       navigate("/login", {
@@ -147,6 +164,34 @@ function SignupForm() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    setError("");
+    setSendingPhoneOtp(true);
+    try {
+      await sendPhoneVerificationCode(formData.phoneNumber.trim());
+      setPhoneOtpSent(true);
+      setFormData((prev) => ({ ...prev, phoneOtp: "" }));
+    } catch (err) {
+      setError(err.message || "Unable to send phone verification code.");
+    } finally {
+      setSendingPhoneOtp(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    setError("");
+    setSendingEmailOtp(true);
+    try {
+      await sendEmailVerificationCode(formData.email.trim());
+      setEmailOtpSent(true);
+      setFormData((prev) => ({ ...prev, emailOtp: "" }));
+    } catch (err) {
+      setError(err.message || "Unable to send email verification code.");
+    } finally {
+      setSendingEmailOtp(false);
     }
   };
 
@@ -219,6 +264,30 @@ function SignupForm() {
             disabled={loading}
             className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
           />
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={handleSendEmailOtp}
+              disabled={loading || sendingEmailOtp || !formData.email.trim()}
+              className="rounded-lg border border-green-700 px-3 py-2 text-sm font-medium text-green-700 disabled:opacity-50"
+            >
+              {sendingEmailOtp ? "Sending..." : emailOtpSent ? "Resend email code" : "Send email code"}
+            </button>
+            {emailOtpSent && (
+              <input
+                type="text"
+                name="emailOtp"
+                value={formData.emailOtp}
+                onChange={handleChange}
+                placeholder="Email code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                disabled={loading}
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2"
+                aria-label="Email verification code"
+              />
+            )}
+          </div>
         </div>
 
         {/* PHONE NUMBER */}
@@ -245,6 +314,30 @@ function SignupForm() {
           <p className="mt-1 text-xs text-gray-400">
             Example: 09018272221 or 2349018272221
           </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={handleSendPhoneOtp}
+              disabled={loading || sendingPhoneOtp || !formData.phoneNumber.trim()}
+              className="rounded-lg border border-green-700 px-3 py-2 text-sm font-medium text-green-700 disabled:opacity-50"
+            >
+              {sendingPhoneOtp ? "Sending..." : phoneOtpSent ? "Resend phone code" : "Send phone code"}
+            </button>
+            {phoneOtpSent && (
+              <input
+                type="text"
+                name="phoneOtp"
+                value={formData.phoneOtp}
+                onChange={handleChange}
+                placeholder="Phone code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                disabled={loading}
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2"
+                aria-label="Phone verification code"
+              />
+            )}
+          </div>
         </div>
 
         {/* FARM DETAILS */}

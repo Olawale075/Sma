@@ -152,33 +152,42 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             if (isPhonenumberRegistered(phoneNumber)) {
                 return ResponseEntity.badRequest().body("Phone number already used");
             }
-            if (isEmailRegistered(request.getEmail())) {
+            String email = request.getEmail();
+            if (email != null && !email.isBlank() && isEmailRegistered(email)) {
                 return ResponseEntity.badRequest().body("Email already used");
             }
 
-           if (request.getOtp() == null || request.getOtp().isBlank()) {
-               return ResponseEntity.badRequest().body("OTP is required");
-           }
-            // Uncomment this when ready
-             if (!otpService.verifyOtp(phoneNumber, request.getOtp())) {
-                 return ResponseEntity.badRequest().body("Invalid OTP");
-             }
-//           if (!emailVerificationService.verifyOtp(request.getEmail(), request.getOtp())) {
-//               return ResponseEntity.badRequest().body("Invalid OTP for email verification");
-//           }
+            if (request.getOtp() == null || request.getOtp().isBlank()) {
+                return ResponseEntity.badRequest().body("Phone verification OTP is required");
+            }
+            if (!otpService.verifyOtp(phoneNumber, request.getOtp())) {
+                return ResponseEntity.badRequest().body("Invalid phone verification OTP");
+            }
+
+            boolean emailProvided = email != null && !email.isBlank();
+            if (emailProvided && (request.getEmailOtp() == null || request.getEmailOtp().isBlank())) {
+                return ResponseEntity.badRequest().body("Email verification OTP is required");
+            }
+            boolean emailVerified = !emailProvided;
+            if (emailProvided) {
+                emailVerified = emailVerificationService.verifyOtp(email, request.getEmailOtp());
+            }
+            if (!emailVerified) {
+                return ResponseEntity.badRequest().body("Invalid email verification OTP");
+            }
 
            Users user = Users.builder()
                     .phonenumber(phoneNumber)
                     .name(request.getFullName()) // This should not be null!
-                    .email(request.getEmail())
+                    .email(emailProvided ? email : null)
                     .password(passwordEncoder.encode(request.getPassword()))
                     .role(UserRole.ROLE_USER)
                     .farmName(request.getFarmName())
                     .crop(request.getCrop())
                     .farmSize(request.getFarmSize())
                     .farmLocation(request.getFarmLocation())
-                    .isVerified(false)
-                    .emailVerified(request.getEmail() != null ? false : true)
+                    .isVerified(true)
+                    .emailVerified(emailVerified)
                     .build();
 
             repository.save(user);

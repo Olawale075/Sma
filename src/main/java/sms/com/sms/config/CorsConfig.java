@@ -25,7 +25,8 @@ public class CorsConfig {
                 "https://fireeyes-v2.vercel.app",
                 "https://fireeyes-detector-ib01.onrender.com",
                 "https://crop-disease-detector-8nqt.onrender.com",
-                "https://crop-detect-aq7x.onrender.com"
+                "https://crop-detect-aq7x.onrender.com",
+                "https://new-crop.onrender.com"
         ));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
