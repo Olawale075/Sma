@@ -55,7 +55,9 @@ public class JwtFilter extends OncePerRequestFilter {
                 path.startsWith("/user/sendOtpToEmail") ||
                 path.startsWith("/user/forgotPassword") ||
                 path.startsWith("/gas-detectors/user/getDetector") ||
-                path.startsWith("/gas-detectors/device/update");
+                path.startsWith("/gas-detectors/device/update") ||
+                (path.equals("/payments/callback") && method.equals("GET")) ||
+                (path.equals("/payments/webhook") && method.equals("POST"));
     }
 
     @Override
@@ -64,10 +66,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         final String authorizationHeader = request.getHeader("Authorization");
 
-        System.out.println("🔹 Authorization Header: " + authorizationHeader); // Debugging
-
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            System.out.println("❌ No JWT token found. Skipping authentication.");
             filterChain.doFilter(request, response);
             return;
         }
@@ -94,9 +93,6 @@ public class JwtFilter extends OncePerRequestFilter {
                         userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-                System.out.println(" JWT Token Authenticated for: " + phoneNumber);
-            } else {
-                System.out.println("JWT Token is invalid.");
             }
         }
 

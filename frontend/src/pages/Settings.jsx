@@ -5,6 +5,7 @@ import PersonalInfo from "../components/settings/PersonalInfo";
 import NotificationPreferences from "../components/settings/NotificationPreferences";
 import PasswordUpdate from "../components/settings/PasswordUpdate";
 import ConnectedDevices from "../components/settings/ConnectedDevices";
+import TokenPurchase from "../components/settings/TokenPurchase";
 import { FaBars } from "react-icons/fa";
 
 function Settings() {
@@ -51,6 +52,8 @@ function Settings() {
             <PasswordUpdate />
 
             <ConnectedDevices />
+
+            <TokenPurchase />
 
           </div>
 

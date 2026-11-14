@@ -47,6 +47,8 @@ public class SecurityConfig {
                                 "/api/detect/**"
                         ).authenticated()
                         .requestMatchers(
+                                "/payments/callback",
+                                "/payments/webhook",
                                 "/user/sendOtp/**",
                                 "/user/CreateUser/**",
                                 "/user/auth/login",
@@ -69,6 +71,7 @@ public class SecurityConfig {
                                 "/js/**"
                         )
                         .permitAll()
+                        .requestMatchers("/payments/initiate", "/payments/status/**").authenticated()
                         .requestMatchers("/user/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/gas-detectors/user/**", "/api/sensor-readings/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                         .requestMatchers("/gas-detectors/admin/**").hasAuthority("ROLE_ADMIN")

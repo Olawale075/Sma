@@ -27,4 +27,18 @@ public interface UsersRepository extends JpaRepository<Users, String> {
   @Query("update Users u set u.AITokenBalance = u.AITokenBalance - :amount " +
       "where u.phonenumber = :phoneNumber and u.AITokenBalance >= :amount")
   int deductAiTokens(@Param("phoneNumber") String phoneNumber, @Param("amount") java.math.BigDecimal amount);
+
+  @Modifying
+  @Transactional
+  @Query("update Users u set u.AITokenBalance = case when u.AITokenBalance is null " +
+      "then :amount else u.AITokenBalance + :amount end " +
+      "where u.phonenumber = :phoneNumber")
+  int creditAiTokens(@Param("phoneNumber") String phoneNumber, @Param("amount") java.math.BigDecimal amount);
+
+  @Modifying
+  @Transactional
+  @Query("update Users u set u.sMSTokenBalance = case when u.sMSTokenBalance is null " +
+      "then :amount else u.sMSTokenBalance + :amount end " +
+      "where u.phonenumber = :phoneNumber")
+  int creditSmsTokens(@Param("phoneNumber") String phoneNumber, @Param("amount") java.math.BigDecimal amount);
 }
