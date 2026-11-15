@@ -67,6 +67,36 @@ public class PaymentController {
                 phoneNumber, transactionReference));
     }
 
+    @PostMapping("/{transactionReference}/checkout")
+    public ResponseEntity<Map<String, String>> createCheckout(
+            @AuthenticationPrincipal(expression = "username") String phoneNumber,
+            @PathVariable String transactionReference) {
+        JsonNode paymentDetails = purchaseService.getCheckoutDetails(phoneNumber, transactionReference);
+        return ResponseEntity.ok(Map.of(
+                "transactionReference", transactionReference,
+                "accessCode", paymentDetails.path("accessCode").asText(),
+                "paymentUrl", paymentDetails.path("url").asText()));
+    }
+
+    @GetMapping(value = "/{transactionReference}/initiation-response",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> getInitiationResponse(
+            @AuthenticationPrincipal(expression = "username") String phoneNumber,
+            @PathVariable String transactionReference) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(purchaseService.getInitiationResponse(phoneNumber, transactionReference));
+    }
+
+    @GetMapping("/{transactionReference}/access-code")
+    public ResponseEntity<Map<String, String>> getAccessCode(
+            @AuthenticationPrincipal(expression = "username") String phoneNumber,
+            @PathVariable String transactionReference) {
+        return ResponseEntity.ok(Map.of(
+                "transactionReference", transactionReference,
+                "accessCode", purchaseService.getAccessCode(phoneNumber, transactionReference)));
+    }
+
     @GetMapping("/callback")
     public ResponseEntity<?> paymentCallback(
             @RequestParam(required = false) String ref,

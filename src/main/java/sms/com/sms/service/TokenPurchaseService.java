@@ -1,6 +1,7 @@
 package sms.com.sms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +71,9 @@ public class TokenPurchaseService {
         purchaseRepository.saveAndFlush(purchase);
 
         JsonNode initiation = tgiPaymentService.initiatePayment(user, reference, amount);
+        purchase.setTgiInitiationResponse(initiation.toString());
+        purchaseRepository.saveAndFlush(purchase);
+
         String providerReference = initiation.path("data").path("transactionReference")
                 .asText(initiation.path("transactionReference").asText(""));
         if (providerReference.isBlank()) {
@@ -80,10 +84,41 @@ public class TokenPurchaseService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "TGI returned a mismatched transaction reference");
         }
-        String paymentUrl = tgiPaymentService.getPaymentUrl(providerReference);
+        JsonNode paymentDetails = tgiPaymentService.validatePaymentDetails(initiation, providerReference);
+        verifyAmountIfProvided(purchase, paymentDetails);
+        String paymentUrl = paymentDetails.path("url").asText();
+        String accessCode = paymentDetails.path("accessCode").asText();
+        purchase.setTgiAccessCode(accessCode);
+        purchase.setTgiPaymentUrl(paymentUrl);
+        purchaseRepository.saveAndFlush(purchase);
 
         return new TokenPurchaseResponse(reference, paymentUrl, tokenType, quantity, amount, "NGN",
-                TokenPurchaseStatus.PENDING.name());
+                TokenPurchaseStatus.PENDING.name(), accessCode, initiation);
+    }
+
+    @Transactional
+    public JsonNode getCheckoutDetails(String phoneNumber, String transactionReference) {
+        TokenPurchase purchase = getOwnedPurchase(phoneNumber, transactionReference);
+        if (purchase.getTgiAccessCode() != null && !purchase.getTgiAccessCode().isBlank()
+                && purchase.getTgiPaymentUrl() != null && !purchase.getTgiPaymentUrl().isBlank()) {
+            return JsonNodeFactory.instance.objectNode()
+                    .put("transactionReference", purchase.getTransactionReference())
+                    .put("accessCode", purchase.getTgiAccessCode())
+                    .put("url", purchase.getTgiPaymentUrl())
+                    .put("amount", purchase.getAmount())
+                    .put("currency", "NGN");
+        }
+        JsonNode paymentDetails = tgiPaymentService.getPaymentDetails(transactionReference);
+        verifyAmountIfProvided(purchase, paymentDetails);
+        String accessCode = paymentDetails.path("accessCode").asText();
+        if (accessCode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "TGI did not return a payment access code");
+        }
+        purchase.setTgiAccessCode(accessCode);
+        purchase.setTgiPaymentUrl(paymentDetails.path("url").asText());
+        purchaseRepository.saveAndFlush(purchase);
+        return paymentDetails;
     }
 
     @Transactional
@@ -92,6 +127,25 @@ public class TokenPurchaseService {
         JsonNode status = tgiPaymentService.getPaymentStatus(transactionReference);
         applyVerifiedStatus(purchase, status);
         return status;
+    }
+
+    public String getInitiationResponse(String phoneNumber, String transactionReference) {
+        TokenPurchase purchase = getOwnedPurchase(phoneNumber, transactionReference);
+        String response = purchase.getTgiInitiationResponse();
+        if (response == null || response.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "TGI initiation response is not available for this purchase");
+        }
+        return response;
+    }
+
+    public String getAccessCode(String phoneNumber, String transactionReference) {
+        TokenPurchase purchase = getOwnedPurchase(phoneNumber, transactionReference);
+        if (purchase.getTgiAccessCode() == null || purchase.getTgiAccessCode().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "TGI access code is not available for this purchase");
+        }
+        return purchase.getTgiAccessCode();
     }
 
     @Transactional

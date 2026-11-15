@@ -1,6 +1,7 @@
 package sms.com.sms.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,23 +43,37 @@ class TokenPurchaseServiceTest {
 
         when(usersRepository.findById(phoneNumber)).thenReturn(Optional.of(user));
         when(tgiPaymentService.initiatePayment(eq(user), anyString(), eq(new BigDecimal("30.00"))))
-                .thenAnswer(invocation -> new ObjectMapper().createObjectNode()
-                        .putObject("data")
-                        .put("transactionReference", invocation.<String>getArgument(1)));
-        when(tgiPaymentService.getPaymentUrl(anyString()))
-                .thenReturn("https://merchant.tgipay.com/pay-now/access");
-
+                .thenAnswer(invocation -> {
+                    var response = new ObjectMapper().createObjectNode();
+                    response.put("status", true);
+                    response.putObject("data")
+                            .put("transactionReference", invocation.<String>getArgument(1))
+                            .put("accessCode", "test-access-code")
+                            .put("url", "https://merchant.tgipay.com/pay-now/test-access-code")
+                            .put("amount", 30.00)
+                            .put("currency", "NGN");
+                    return response;
+                });
+        when(tgiPaymentService.validatePaymentDetails(any(JsonNode.class), anyString()))
+                .thenAnswer(invocation -> invocation.<JsonNode>getArgument(0).path("data"));
         var response = service.initiatePurchase(phoneNumber, TokenType.AI_TOKEN, 3);
         var purchaseCaptor = forClass(TokenPurchase.class);
         var referenceCaptor = forClass(String.class);
 
         assertEquals(new BigDecimal("30.00"), response.getAmount());
+        assertEquals("https://merchant.tgipay.com/pay-now/test-access-code", response.getPaymentUrl());
+        assertEquals("test-access-code", response.getAccessCode());
         verify(usersRepository).findById(phoneNumber);
-        verify(purchaseRepository).saveAndFlush(purchaseCaptor.capture());
-        assertEquals(phoneNumber, purchaseCaptor.getValue().getPhoneNumber());
         verify(tgiPaymentService).initiatePayment(eq(user), referenceCaptor.capture(),
                 eq(new BigDecimal("30.00")));
-        verify(tgiPaymentService).getPaymentUrl(referenceCaptor.getValue());
+        assertEquals(referenceCaptor.getValue(), response.getTgiInitiationResponse()
+                .path("data").path("transactionReference").asText());
+        verify(purchaseRepository, org.mockito.Mockito.times(3)).saveAndFlush(purchaseCaptor.capture());
+        assertEquals(phoneNumber, purchaseCaptor.getValue().getPhoneNumber());
+        assertEquals(response.getTgiInitiationResponse().toString(),
+                purchaseCaptor.getAllValues().get(1).getTgiInitiationResponse());
+        assertEquals("test-access-code", purchaseCaptor.getAllValues().get(2).getTgiAccessCode());
+        verify(tgiPaymentService, never()).getPaymentDetails(anyString());
     }
 
     @Test
@@ -77,6 +92,72 @@ class TokenPurchaseServiceTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
         verify(tgiPaymentService, never()).initiatePayment(any(), anyString(), any());
+    }
+
+    @Test
+    void retrievesSavedInitiationResponseOnlyForTheOwningUser() {
+        TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
+        UsersRepository usersRepository = mock(UsersRepository.class);
+        TgiPaymentService tgiPaymentService = mock(TgiPaymentService.class);
+        TokenPurchaseService service = new TokenPurchaseService(
+                purchaseRepository, usersRepository, tgiPaymentService);
+        String reference = "test-reference";
+        String providerResponse = "{\"status\":true,\"data\":{\"transactionReference\":\"test-reference\"}}";
+        TokenPurchase purchase = new TokenPurchase(reference, "2348012345678", TokenType.AI_TOKEN,
+                BigDecimal.valueOf(10), new BigDecimal("100.00"));
+        purchase.setTgiInitiationResponse(providerResponse);
+
+        when(purchaseRepository.findByTransactionReferenceAndPhoneNumber(reference, "2348012345678"))
+                .thenReturn(Optional.of(purchase));
+
+        assertEquals(providerResponse,
+                service.getInitiationResponse("2348012345678", reference));
+    }
+
+    @Test
+    void retrievesSavedAccessCodeOnlyForTheOwningUser() {
+        TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
+        TokenPurchaseService service = new TokenPurchaseService(
+                purchaseRepository, mock(UsersRepository.class), mock(TgiPaymentService.class));
+        String reference = "test-reference";
+        TokenPurchase purchase = new TokenPurchase(reference, "2348012345678", TokenType.AI_TOKEN,
+                BigDecimal.valueOf(10), new BigDecimal("100.00"));
+        purchase.setTgiAccessCode("test-access-code");
+
+        when(purchaseRepository.findByTransactionReferenceAndPhoneNumber(reference, "2348012345678"))
+                .thenReturn(Optional.of(purchase));
+
+        assertEquals("test-access-code",
+                service.getAccessCode("2348012345678", reference));
+    }
+
+    @Test
+    void obtainsAndSavesCheckoutDetailsSeparatelyFromInitiation() {
+        TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
+        TgiPaymentService tgiPaymentService = mock(TgiPaymentService.class);
+        TokenPurchaseService service = new TokenPurchaseService(
+                purchaseRepository, mock(UsersRepository.class), tgiPaymentService);
+        String reference = "test-reference";
+        TokenPurchase purchase = new TokenPurchase(reference, "2348012345678", TokenType.AI_TOKEN,
+                BigDecimal.TEN, new BigDecimal("100.00"));
+        var details = new ObjectMapper().createObjectNode()
+                .put("transactionReference", reference)
+                .put("amount", 100.00)
+                .put("currency", "NGN")
+                .put("accessCode", "test-access-code")
+                .put("url", "https://merchant.tgipay.com/pay-now/test-access-code");
+
+        when(purchaseRepository.findByTransactionReferenceAndPhoneNumber(reference, "2348012345678"))
+                .thenReturn(Optional.of(purchase));
+        when(tgiPaymentService.getPaymentDetails(reference)).thenReturn(details);
+
+        var response = service.getCheckoutDetails("2348012345678", reference);
+
+        assertEquals("test-access-code", response.path("accessCode").asText());
+        assertEquals("https://merchant.tgipay.com/pay-now/test-access-code",
+                response.path("url").asText());
+        assertEquals("test-access-code", purchase.getTgiAccessCode());
+        verify(purchaseRepository).saveAndFlush(purchase);
     }
 
     @Test

@@ -67,6 +67,12 @@ public class TgiPaymentService {
         payload.put("currency", "NGN");
 
         JsonNode response = exchange(URI.create(PAYMENT_ENDPOINT + "/initiate"), HttpMethod.POST, payload);
+        JsonNode responseData = response.path("data");
+        logger.info("TGI payment initiation response: status={}, message={}, transactionReference={}",
+                response.path("status").asText(""),
+                response.path("message").asText(""),
+                responseData.path("transactionReference")
+                        .asText(response.path("transactionReference").asText("")));
         if (response.has("status") && response.get("status").isBoolean()
                 && !response.get("status").asBoolean()) {
             throw new ResponseStatusException(BAD_GATEWAY, "TGI rejected the payment initiation");
@@ -74,18 +80,25 @@ public class TgiPaymentService {
         return response;
     }
 
-    public String getPaymentUrl(String transactionReference) {
+    public JsonNode getPaymentDetails(String transactionReference) {
         JsonNode response = exchange(paymentUri(transactionReference), HttpMethod.GET, null);
+        return validatePaymentDetails(response, transactionReference);
+    }
+
+    public JsonNode validatePaymentDetails(JsonNode response, String transactionReference) {
         if (!response.path("status").asBoolean(false)) {
-            throw new ResponseStatusException(BAD_GATEWAY, "TGI could not return a payment URL");
+            throw new ResponseStatusException(BAD_GATEWAY, "TGI could not return payment details");
         }
         JsonNode data = response.path("data");
         if (!transactionReference.equals(data.path("transactionReference").asText())) {
             throw new ResponseStatusException(BAD_GATEWAY, "TGI returned a mismatched transaction reference");
         }
         String paymentUrl = data.path("url").asText();
+        if (data.path("accessCode").asText().isBlank()) {
+            throw new ResponseStatusException(BAD_GATEWAY, "TGI did not return a payment access code");
+        }
         try {
-            java.net.URI uri = java.net.URI.create(paymentUrl);
+            URI uri = URI.create(paymentUrl);
             if (!"https".equalsIgnoreCase(uri.getScheme())
                     || !"merchant.tgipay.com".equalsIgnoreCase(uri.getHost())) {
                 throw new IllegalArgumentException("Untrusted payment URL");
@@ -93,7 +106,7 @@ public class TgiPaymentService {
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(BAD_GATEWAY, "TGI returned an invalid payment URL", exception);
         }
-        return paymentUrl;
+        return data;
     }
 
     public JsonNode getPaymentStatus(String transactionReference) {

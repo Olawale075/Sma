@@ -1,5 +1,6 @@
 package sms.com.sms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
@@ -97,7 +98,8 @@ class TgiPaymentServiceTest {
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("integration-key", "test-public-key"))
                 .andRespond(withSuccess("{\"status\":true,\"data\":{\"transactionReference\":\""
-                        + reference + "\",\"url\":\"https://merchant.tgipay.com/pay-now/access\"}}",
+                        + reference + "\",\"accessCode\":\"test-access-code\","
+                        + "\"url\":\"https://merchant.tgipay.com/pay-now/access\"}}",
                         MediaType.APPLICATION_JSON));
 
         Users user = new Users();
@@ -106,7 +108,9 @@ class TgiPaymentServiceTest {
         TgiPaymentService service = new TgiPaymentService(restTemplate, "test-public-key");
 
         service.initiatePayment(user, reference, new BigDecimal("100.00"));
-        assertEquals("https://merchant.tgipay.com/pay-now/access", service.getPaymentUrl(reference));
+        JsonNode paymentDetails = service.getPaymentDetails(reference);
+        assertEquals("https://merchant.tgipay.com/pay-now/access", paymentDetails.path("url").asText());
+        assertEquals("test-access-code", paymentDetails.path("accessCode").asText());
         server.verify();
     }
 }

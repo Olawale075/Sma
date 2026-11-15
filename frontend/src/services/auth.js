@@ -1,4 +1,5 @@
-const API_URL = "https://fireeyes-detector-ib01.onrender.com";
+const API_URL = (import.meta.env.VITE_API_URL || "https://fireeyes-detector-ib01.onrender.com")
+  .replace(/\/+$/, "");
 
 // LOGIN
 export async function login(phoneNumber, password) {

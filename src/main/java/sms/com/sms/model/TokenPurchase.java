@@ -38,6 +38,15 @@ public class TokenPurchase {
     @Column(nullable = false)
     private TokenPurchaseStatus status = TokenPurchaseStatus.PENDING;
 
+    @Column(columnDefinition = "text")
+    private String tgiInitiationResponse;
+
+    @Column(length = 160)
+    private String tgiAccessCode;
+
+    @Column(length = 2048)
+    private String tgiPaymentUrl;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -81,6 +90,30 @@ public class TokenPurchase {
 
     public void setStatus(TokenPurchaseStatus status) {
         this.status = status;
+    }
+
+    public String getTgiInitiationResponse() {
+        return tgiInitiationResponse;
+    }
+
+    public void setTgiInitiationResponse(String response) {
+        this.tgiInitiationResponse = response;
+    }
+
+    public String getTgiAccessCode() {
+        return tgiAccessCode;
+    }
+
+    public void setTgiAccessCode(String tgiAccessCode) {
+        this.tgiAccessCode = tgiAccessCode;
+    }
+
+    public String getTgiPaymentUrl() {
+        return tgiPaymentUrl;
+    }
+
+    public void setTgiPaymentUrl(String tgiPaymentUrl) {
+        this.tgiPaymentUrl = tgiPaymentUrl;
     }
 
     public LocalDateTime getCreatedAt() {
