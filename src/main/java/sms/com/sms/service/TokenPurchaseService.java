@@ -2,6 +2,8 @@ package sms.com.sms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import java.util.UUID;
 @Service
 public class TokenPurchaseService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TokenPurchaseService.class);
     private static final BigDecimal MAX_TOKEN_QUANTITY = BigDecimal.valueOf(100_000);
     private static final BigDecimal AI_TOKEN_PRICE = BigDecimal.TEN;
     private static final BigDecimal SMS_PRICE_PER_TOKEN = BigDecimal.valueOf(100)
@@ -125,7 +128,9 @@ public class TokenPurchaseService {
     public JsonNode checkPaymentStatus(String phoneNumber, String transactionReference) {
         TokenPurchase purchase = getOwnedPurchase(phoneNumber, transactionReference);
         JsonNode status = tgiPaymentService.getPaymentStatus(transactionReference);
-        applyVerifiedStatus(purchase, status);
+        TokenPurchaseStatus purchaseStatus = applyVerifiedStatus(purchase, status);
+        logger.info("Checked TGI payment status: reference={}, providerStatus={}, purchaseStatus={}",
+                transactionReference, status.path("data").path("status").asText("unknown"), purchaseStatus);
         return status;
     }
 
@@ -153,7 +158,10 @@ public class TokenPurchaseService {
         TokenPurchase purchase = purchaseRepository.findById(transactionReference)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         JsonNode status = tgiPaymentService.getPaymentStatus(transactionReference);
-        return applyVerifiedStatus(purchase, status);
+        TokenPurchaseStatus purchaseStatus = applyVerifiedStatus(purchase, status);
+        logger.info("Processed TGI return callback: reference={}, providerStatus={}, purchaseStatus={}",
+                transactionReference, status.path("data").path("status").asText("unknown"), purchaseStatus);
+        return purchaseStatus;
     }
 
     @Transactional
@@ -194,7 +202,10 @@ public class TokenPurchaseService {
 
         TokenPurchase purchase = purchaseRepository.findById(transactionReference)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
-        return applyVerifiedStatus(purchase, webhook);
+        TokenPurchaseStatus purchaseStatus = applyVerifiedStatus(purchase, webhook);
+        logger.info("Processed TGI webhook: event={}, idempotencyKey={}, reference={}, purchaseStatus={}",
+                event, idempotencyKey, transactionReference, purchaseStatus);
+        return purchaseStatus;
     }
 
     TokenPurchaseStatus applyVerifiedStatus(TokenPurchase purchase, JsonNode response) {

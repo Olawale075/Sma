@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PaymentReturnNotice from "./PaymentReturnNotice";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://fireeyes-detector-ib01.onrender.com";
 
@@ -7,15 +8,6 @@ function TokenPurchase() {
   const [quantity, setQuantity] = useState("10");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [notice] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get("paymentStatus");
-    const reference = params.get("transactionReference");
-    if (!paymentStatus) return "";
-    return paymentStatus === "success"
-      ? `Payment verified${reference ? ` (${reference})` : ""}. Your token balance has been updated.`
-      : `Payment status: ${paymentStatus}${reference ? ` (${reference})` : ""}.`;
-  });
 
   const quantityNumber = Number(quantity);
   const price = tokenType === "AI_TOKEN"
@@ -67,7 +59,7 @@ function TokenPurchase() {
         Choose your token type and quantity. The server calculates the NGN price and creates your TGI checkout.
       </p>
 
-      {notice && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+      <PaymentReturnNotice />
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <form className="mt-5 space-y-4" onSubmit={startPurchase}>

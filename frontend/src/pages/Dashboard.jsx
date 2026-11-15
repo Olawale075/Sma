@@ -7,6 +7,7 @@ import FarmMap from "../components/dashboard/FarmMap";
 import RecentAlerts from "../components/dashboard/RecentAlerts";
 import AIInsight from "../components/dashboard/AIInsight";
 import CameraStream from "../components/sensors/CameraStream";
+import PaymentReturnNotice from "../components/settings/PaymentReturnNotice";
 
 function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,6 +35,8 @@ function Dashboard() {
       <main className="flex-1 lg:ml-72 p-6 md:p-8">
 
         <Topbar setSidebarOpen={setSidebarOpen} />
+
+        <PaymentReturnNotice />
 
         <StatsCards />
 
