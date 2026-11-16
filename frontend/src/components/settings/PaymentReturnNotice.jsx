@@ -18,10 +18,6 @@ function PaymentReturnNotice() {
 
     async function checkPayment() {
       const authToken = localStorage.getItem("token");
-      if (!authToken) {
-        setError("Sign in to verify this payment and refresh your token balance.");
-        return;
-      }
 
       async function refreshBalance() {
         const storedUser = localStorage.getItem("user");
@@ -52,39 +48,40 @@ function PaymentReturnNotice() {
       }
 
       if (callbackStatus === "success") {
-        setMessage("Callback reported success. Verifying payment with the server...");
+        setMessage("Confirming payment with the server...");
         try {
           const response = await fetch(
-            `${API_URL}/payments/status/${encodeURIComponent(reference)}`,
-            {
-              method: "PUT",
-              headers: { Authorization: "Bearer " + authToken },
-            },
+            `${API_URL}/payments/callback?transactionReference=${encodeURIComponent(reference)}`,
+            { headers: { Accept: "application/json" } },
           );
           const result = await response.json();
           if (!response.ok) {
             throw new Error(result.message || `Could not verify the payment (HTTP ${response.status}).`);
           }
 
-          const status = String(result?.data?.status ?? result?.status ?? "").toLowerCase();
-          if (status !== "success") {
-            setMessage(`Callback reported success, but the server reports payment status: ${status || "unknown"}.`);
+          const verifiedStatus = String(result?.status ?? "").toLowerCase();
+          if (verifiedStatus !== "success") {
+            setMessage(`Payment is ${verifiedStatus || "not confirmed"}; your token balance has not been changed.`);
             return;
           }
 
-          setMessage("Payment verified. Refreshing your token balance...");
-          try {
-            await refreshBalance();
-          } catch (refreshError) {
-            if (!cancelled) {
-              setMessage(`Payment was verified and credited, but the displayed balance could not refresh: ${refreshError.message}`);
-            }
+          if (!authToken) {
+            setMessage("Payment verified and credited. Sign in to refresh your displayed balance.");
+            return;
           }
-        } catch (checkError) {
+
+          setMessage("Payment verified and credited. Refreshing your token balance...");
+          await refreshBalance();
+        } catch (refreshError) {
           if (!cancelled) {
-            setError(checkError.message || "Could not verify the payment.");
+            setError(refreshError.message || "Could not verify the payment.");
           }
         }
+        return;
+      }
+
+      if (!authToken) {
+        setError("Sign in to verify this payment and refresh your token balance.");
         return;
       }
 

@@ -109,7 +109,8 @@ public class PaymentController {
     @GetMapping("/callback")
     public ResponseEntity<?> paymentCallback(
             @RequestParam(required = false) String ref,
-            @RequestParam(required = false) String transactionReference) {
+            @RequestParam(required = false) String transactionReference,
+            @RequestHeader(value = "Accept", required = false) String accept) {
         String reference = ref == null || ref.isBlank() ? transactionReference : ref;
         if (reference == null || reference.isBlank() || reference.length() > 160) {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid transaction reference"));
@@ -119,6 +120,9 @@ public class PaymentController {
         Map<String, String> result = Map.of(
                 "transactionReference", reference,
                 "status", verifiedStatus.name().toLowerCase());
+        if (accept != null && accept.contains(MediaType.APPLICATION_JSON_VALUE)) {
+            return ResponseEntity.ok(result);
+        }
         if (frontendUrl == null || frontendUrl.isBlank()) {
             return ResponseEntity.ok(result);
         }
