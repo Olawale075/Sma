@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import sms.com.sms.dto.TokenPurchaseResponse;
+import sms.com.sms.enums.Status;
 import sms.com.sms.enums.TokenPurchaseStatus;
 import sms.com.sms.enums.TokenType;
 import sms.com.sms.model.TokenPurchase;
@@ -96,7 +97,7 @@ public class TokenPurchaseService {
         purchaseRepository.saveAndFlush(purchase);
 
         return new TokenPurchaseResponse(reference, paymentUrl, tokenType, quantity, amount, "NGN",
-                TokenPurchaseStatus.PENDING.name(), accessCode, initiation);
+                Status.PENDING, accessCode, initiation);
     }
 
     @Transactional

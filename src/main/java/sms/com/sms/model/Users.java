@@ -45,7 +45,23 @@ public class Users implements UserDetails {
     private String farmName;
     @Column(nullable = false)
     private String farmLocation;
+    @Column(nullable = false)
+    private Boolean isVerified = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
+    @Builder.Default
+    private BigDecimal AITokenBalance = BigDecimal.valueOf(100);
+    private BigDecimal sMSTokenBalance;
+    @Column(nullable = false)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    private NotificationPreference notificationPreference;
+
+    @Transient
+    private String otp;
     public BigDecimal getAITokenBalance() {
         return AITokenBalance == null ? BigDecimal.ZERO : AITokenBalance;
     }
@@ -69,23 +85,7 @@ public class Users implements UserDetails {
     public void setNotificationPreference(NotificationPreference notificationPreference) {
         this.notificationPreference = notificationPreference;
     }
-    @Column(nullable = false)
-    private Boolean isVerified = false;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserRole role;
-    @Builder.Default
-    private BigDecimal AITokenBalance = BigDecimal.valueOf(100);
-    private BigDecimal sMSTokenBalance;
-    @Column(nullable = false)
-    private String password;
-
-    @Enumerated(EnumType.STRING)
-    private NotificationPreference notificationPreference;
-
-    @Transient
-    private String otp;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_gas_detector", joinColumns = @JoinColumn(name = "user_phonenumber", referencedColumnName = "phone_number"), inverseJoinColumns = @JoinColumn(name = "gas_detector_mac", referencedColumnName = "mac_address"))

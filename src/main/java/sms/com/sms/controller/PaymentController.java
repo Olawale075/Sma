@@ -11,6 +11,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,6 +62,14 @@ public class PaymentController {
 
     @GetMapping("/status/{transactionReference}")
     public ResponseEntity<JsonNode> getPaymentStatus(
+            @AuthenticationPrincipal(expression = "username") String phoneNumber,
+            @PathVariable String transactionReference) {
+        return ResponseEntity.ok(purchaseService.checkPaymentStatus(
+                phoneNumber, transactionReference));
+    }
+
+    @PutMapping("/status/{transactionReference}")
+    public ResponseEntity<JsonNode> updatePaymentStatus(
             @AuthenticationPrincipal(expression = "username") String phoneNumber,
             @PathVariable String transactionReference) {
         return ResponseEntity.ok(purchaseService.checkPaymentStatus(

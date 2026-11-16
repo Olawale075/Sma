@@ -200,6 +200,36 @@ class TokenPurchaseServiceTest {
     }
 
     @Test
+    void creditsSmsTokensOnlyOnceAfterVerifiedSuccess() throws Exception {
+        TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
+        UsersRepository usersRepository = mock(UsersRepository.class);
+        TgiPaymentService tgiPaymentService = mock(TgiPaymentService.class);
+        TokenPurchaseService service = new TokenPurchaseService(
+                purchaseRepository, usersRepository, tgiPaymentService);
+        String reference = "sms-test-reference";
+        TokenPurchase purchase = new TokenPurchase(
+                reference, "2348012345678", TokenType.SMS_TOKEN,
+                BigDecimal.valueOf(35), new BigDecimal("100.00"));
+        var success = new ObjectMapper().readTree(
+                "{\"data\":{\"transactionReference\":\"sms-test-reference\",\"status\":\"success\","
+                        + "\"amount\":100,\"currency\":\"NGN\"}}");
+
+        when(purchaseRepository.findById(reference)).thenReturn(Optional.of(purchase));
+        when(tgiPaymentService.getPaymentStatus(reference)).thenReturn(success);
+        when(purchaseRepository.updateStatusIfCurrent(
+                reference, TokenPurchaseStatus.PENDING, TokenPurchaseStatus.SUCCESS)).thenReturn(1, 0);
+        when(purchaseRepository.findStatusByTransactionReference(reference))
+                .thenReturn(Optional.of(TokenPurchaseStatus.SUCCESS));
+        when(usersRepository.creditSmsTokens("2348012345678", BigDecimal.valueOf(35))).thenReturn(1);
+
+        assertEquals(TokenPurchaseStatus.SUCCESS, service.processCallback(reference));
+        assertEquals(TokenPurchaseStatus.SUCCESS, service.processCallback(reference));
+        verify(usersRepository).creditSmsTokens("2348012345678", BigDecimal.valueOf(35));
+        verify(usersRepository, never()).creditAiTokens(
+                eq("2348012345678"), eq(BigDecimal.valueOf(35)));
+    }
+
+    @Test
     void processesSignedWebhookStatusAndDoesNotCreditDuplicateDelivery() throws Exception {
         TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
         UsersRepository usersRepository = mock(UsersRepository.class);

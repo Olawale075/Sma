@@ -1,6 +1,7 @@
 package sms.com.sms.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import sms.com.sms.enums.Status;
 import sms.com.sms.enums.TokenType;
 
 import java.math.BigDecimal;
@@ -13,12 +14,12 @@ public class TokenPurchaseResponse {
     private final BigDecimal tokenQuantity;
     private final BigDecimal amount;
     private final String currency;
-    private final String status;
+    private final Status status;
     private final String accessCode;
     private final JsonNode tgiInitiationResponse;
 
     public TokenPurchaseResponse(String transactionReference, String paymentUrl, TokenType tokenType,
-                                 BigDecimal tokenQuantity, BigDecimal amount, String currency, String status,
+                                 BigDecimal tokenQuantity, BigDecimal amount, String currency, Status status,
                                  String accessCode, JsonNode tgiInitiationResponse) {
         this.transactionReference = transactionReference;
         this.paymentUrl = paymentUrl;
@@ -55,7 +56,7 @@ public class TokenPurchaseResponse {
         return currency;
     }
 
-    public String getStatus() {
+    public Status getStatus() {
         return status;
     }
 
