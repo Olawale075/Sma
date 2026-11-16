@@ -54,7 +54,18 @@ function PaymentReturnNotice() {
             `${API_URL}/payments/callback?transactionReference=${encodeURIComponent(reference)}`,
             { headers: { Accept: "application/json" } },
           );
-          const result = await response.json();
+          const responseText = await response.text();
+          let result = {};
+          if (responseText) {
+            try {
+              result = JSON.parse(responseText);
+            } catch {
+              if (!response.ok) {
+                throw new Error(`Could not verify the payment (HTTP ${response.status}).`);
+              }
+              throw new Error("The server returned an invalid payment verification response.");
+            }
+          }
           if (!response.ok) {
             throw new Error(result.message || `Could not verify the payment (HTTP ${response.status}).`);
           }
