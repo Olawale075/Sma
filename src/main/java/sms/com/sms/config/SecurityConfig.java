@@ -74,7 +74,9 @@ public class SecurityConfig {
                                 "/js/**"
                         )
                         .permitAll()
+                        .requestMatchers("/payments/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/payments/initiate", "/payments/status/**").authenticated()
+                        .requestMatchers("/payments/**").authenticated()
                         .requestMatchers("/user/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/gas-detectors/user/**", "/api/sensor-readings/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                         .requestMatchers("/gas-detectors/admin/**").hasAuthority("ROLE_ADMIN")

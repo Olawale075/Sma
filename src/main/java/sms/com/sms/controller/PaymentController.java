@@ -2,7 +2,13 @@ package sms.com.sms.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import sms.com.sms.dto.PaymentSummaryResponse;
 import sms.com.sms.dto.TokenPurchaseRequest;
 import sms.com.sms.dto.TokenPurchaseResponse;
 import sms.com.sms.enums.TokenPurchaseStatus;
@@ -27,6 +35,7 @@ import java.util.Map;
 import java.net.URI;
 
 @RestController
+@Validated
 @RequestMapping("/payments")
 public class PaymentController {
 
@@ -40,6 +49,23 @@ public class PaymentController {
         this.purchaseService = purchaseService;
         this.webhookService = webhookService;
         this.frontendUrl = frontendUrl;
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<PaymentSummaryResponse>> getMyPayments(
+            @AuthenticationPrincipal(expression = "username") String phoneNumber,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(purchaseService.getPaymentsForUser(phoneNumber, pageable));
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<Page<PaymentSummaryResponse>> getAllPayments(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(purchaseService.getAllPayments(pageable));
     }
 
     @PostMapping("/initiate")

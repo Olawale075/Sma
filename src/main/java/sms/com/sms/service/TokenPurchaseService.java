@@ -2,6 +2,8 @@ package sms.com.sms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import sms.com.sms.dto.TokenPurchaseResponse;
+import sms.com.sms.dto.PaymentSummaryResponse;
 import sms.com.sms.enums.Status;
 import sms.com.sms.enums.TokenPurchaseStatus;
 import sms.com.sms.enums.TokenType;
@@ -98,6 +101,19 @@ public class TokenPurchaseService {
 
         return new TokenPurchaseResponse(reference, paymentUrl, tokenType, quantity, amount, "NGN",
                 Status.PENDING, accessCode, initiation);
+    }
+
+    public Page<PaymentSummaryResponse> getPaymentsForUser(String phoneNumber, Pageable pageable) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Authenticated user could not be resolved");
+        }
+        return purchaseRepository.findAllByPhoneNumber(phoneNumber, pageable)
+                .map(PaymentSummaryResponse::new);
+    }
+
+    public Page<PaymentSummaryResponse> getAllPayments(Pageable pageable) {
+        return purchaseRepository.findAll(pageable).map(PaymentSummaryResponse::new);
     }
 
     @Transactional

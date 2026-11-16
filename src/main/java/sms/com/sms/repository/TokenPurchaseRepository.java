@@ -1,5 +1,7 @@
 package sms.com.sms.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +13,8 @@ import sms.com.sms.model.TokenPurchase;
 import java.util.Optional;
 
 public interface TokenPurchaseRepository extends JpaRepository<TokenPurchase, String> {
+
+    Page<TokenPurchase> findAllByPhoneNumber(String phoneNumber, Pageable pageable);
 
     Optional<TokenPurchase> findByTransactionReferenceAndPhoneNumber(String transactionReference,
                                                                       String phoneNumber);
