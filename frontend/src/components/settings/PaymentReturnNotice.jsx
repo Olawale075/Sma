@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API_URL = (import.meta.env.VITE_API_URL || "https://fireeyes-detector-ib01.onrender.com")
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080")
   .replace(/\/+$/, "");
 
 function PaymentReturnNotice() {
