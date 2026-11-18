@@ -170,17 +170,40 @@ public class TokenPurchaseService {
         return purchase.getTgiAccessCode();
     }
 
+//    @Transactional
+//    public TokenPurchaseStatus processCallback(String transactionReference) {
+//        TokenPurchase purchase = purchaseRepository.findById(transactionReference)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+//        JsonNode status = tgiPaymentService.getPaymentStatus(transactionReference);
+//        TokenPurchaseStatus purchaseStatus = applyVerifiedStatus(purchase, status);
+//        logger.info("Processed TGI return callback: reference={}, providerStatus={}, purchaseStatus={}",
+//                transactionReference, status.path("data").path("status").asText("unknown"), purchaseStatus);
+//        return purchaseStatus;
+//    }
     @Transactional
     public TokenPurchaseStatus processCallback(String transactionReference) {
+
         TokenPurchase purchase = purchaseRepository.findById(transactionReference)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Payment not found"));
+
+        logger.info("Local transaction reference: {}", transactionReference);
+
         JsonNode status = tgiPaymentService.getPaymentStatus(transactionReference);
+
+        logger.info("Complete TGIPAY response: {}",
+                status != null ? status.toPrettyString() : "NULL");
+
+        logger.info("TGIPAY returned reference: {}",
+                status.path("data").path("reference").asText("NOT_FOUND"));
+
         TokenPurchaseStatus purchaseStatus = applyVerifiedStatus(purchase, status);
-        logger.info("Processed TGI return callback: reference={}, providerStatus={}, purchaseStatus={}",
-                transactionReference, status.path("data").path("status").asText("unknown"), purchaseStatus);
+
+        logger.info("Processed callback: reference={}, purchaseStatus={}",
+                transactionReference, purchaseStatus);
+
         return purchaseStatus;
     }
-
     @Transactional
     public TokenPurchaseStatus processWebhook(JsonNode webhook, String eventHeader, String idempotencyKey) {
         if (eventHeader == null || eventHeader.isBlank()

@@ -109,15 +109,32 @@ public class TgiPaymentService {
         return data;
     }
 
+//    public JsonNode getPaymentStatus(String transactionReference) {
+//        URI uri = UriComponentsBuilder.fromUriString(PAYMENT_ENDPOINT)
+//                .pathSegment("status", transactionReference)
+//                .build()
+//                .encode()
+//                .toUri();
+//        return exchange(uri, HttpMethod.GET, null);
+//    }
     public JsonNode getPaymentStatus(String transactionReference) {
+
         URI uri = UriComponentsBuilder.fromUriString(PAYMENT_ENDPOINT)
                 .pathSegment("status", transactionReference)
                 .build()
                 .encode()
                 .toUri();
-        return exchange(uri, HttpMethod.GET, null);
-    }
 
+        logger.info("TGIPAY STATUS URL: {}", uri);
+        logger.info("TGIPAY REQUEST REFERENCE: {}", transactionReference);
+
+        JsonNode response = exchange(uri, HttpMethod.GET, null);
+
+        logger.info("TGIPAY RAW STATUS RESPONSE: {}",
+                response != null ? response.toPrettyString() : "NULL");
+
+        return response;
+    }
     private JsonNode exchange(URI uri, HttpMethod method, Object body) {
         ensureConfigured();
         HttpHeaders headers = new HttpHeaders();
