@@ -250,7 +250,12 @@ public class TokenPurchaseService {
 
     TokenPurchaseStatus applyVerifiedStatus(TokenPurchase purchase, JsonNode response) {
         JsonNode data = response.path("data");
-        if (!purchase.getTransactionReference().equals(data.path("transactionReference").asText())) {
+        String transactionReference = data.path("transactionReference").asText("");
+        String reference = data.path("reference").asText("");
+        if ((!transactionReference.isBlank()
+                    && !purchase.getTransactionReference().equals(transactionReference))
+                || (!reference.isBlank() && !purchase.getTransactionReference().equals(reference))
+                || (transactionReference.isBlank() && reference.isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "TGI returned a mismatched transaction reference");
         }

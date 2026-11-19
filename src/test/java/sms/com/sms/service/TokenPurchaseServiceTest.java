@@ -230,6 +230,31 @@ class TokenPurchaseServiceTest {
     }
 
     @Test
+    void acceptsProviderReferenceFieldWhenVerifyingPaymentStatus() throws Exception {
+        TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
+        UsersRepository usersRepository = mock(UsersRepository.class);
+        TgiPaymentService tgiPaymentService = mock(TgiPaymentService.class);
+        TokenPurchaseService service = new TokenPurchaseService(
+                purchaseRepository, usersRepository, tgiPaymentService);
+        String reference = "provider-reference-test";
+        TokenPurchase purchase = new TokenPurchase(
+                reference, "2348012345678", TokenType.AI_TOKEN,
+                BigDecimal.TEN, new BigDecimal("100.00"));
+        var success = new ObjectMapper().readTree(
+                "{\"data\":{\"reference\":\"provider-reference-test\",\"status\":\"success\","
+                        + "\"amount\":100,\"currency\":\"NGN\"}}");
+
+        when(purchaseRepository.findById(reference)).thenReturn(Optional.of(purchase));
+        when(tgiPaymentService.getPaymentStatus(reference)).thenReturn(success);
+        when(purchaseRepository.updateStatusIfCurrent(
+                reference, TokenPurchaseStatus.PENDING, TokenPurchaseStatus.SUCCESS)).thenReturn(1);
+        when(usersRepository.creditAiTokens("2348012345678", BigDecimal.TEN)).thenReturn(1);
+
+        assertEquals(TokenPurchaseStatus.SUCCESS, service.processCallback(reference));
+        verify(usersRepository).creditAiTokens("2348012345678", BigDecimal.TEN);
+    }
+
+    @Test
     void processesSignedWebhookStatusAndDoesNotCreditDuplicateDelivery() throws Exception {
         TokenPurchaseRepository purchaseRepository = mock(TokenPurchaseRepository.class);
         UsersRepository usersRepository = mock(UsersRepository.class);
