@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -63,6 +64,103 @@ public class ReportAnalyticsController {
         response.put("report", buildReport(filtered));
         response.put("analytics", buildAnalytics(filtered));
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/readings/report")
+    public ResponseEntity<Map<String, Object>> getReadingReport(
+            @RequestParam(required = false) String macAddress,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        if (page < 0 || size < 1 || size > 200 || (from != null && to != null && from.isAfter(to))) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("success", false);
+            error.put("message", "Use page >= 0, size between 1 and 200, and from <= to");
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        String normalizedMacAddress = macAddress == null || macAddress.isBlank() ? "" : macAddress.trim();
+        List<DetectorReading> readings = detectorReadingRepository.findReadingsForReport(
+                normalizedMacAddress, from != null, from, to != null, to);
+        List<Map<String, Object>> data = readings.stream()
+                .skip((long) page * size)
+                .limit(size)
+                .map(this::buildReadingPayload)
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", true);
+        response.put("page", page);
+        response.put("size", size);
+        response.put("count", data.size());
+        response.put("total", readings.size());
+        response.put("data", data);
+        response.put("report", buildReadingReport(readings));
+        response.put("analytics", buildReadingAnalytics(readings));
+        return ResponseEntity.ok(response);
+    }
+
+    private Map<String, Object> buildReadingPayload(DetectorReading reading) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", reading.getId());
+        payload.put("macAddress", reading.getDetector() == null ? null : reading.getDetector().getMacAddress());
+        payload.put("receivedAt", reading.getReceivedAt());
+        payload.put("temperature", reading.getTemperature());
+        payload.put("humidity", reading.getHumidity());
+        payload.put("soil", reading.getSoil());
+        payload.put("soilMoisture", reading.getSoilMoisture());
+        payload.put("gas", reading.getGas());
+        payload.put("co2", reading.getCo2());
+        payload.put("overallStatus", reading.getOverallStatus());
+        payload.put("temperatureStatus", reading.getTemperatureStatus());
+        payload.put("humidityStatus", reading.getHumidityStatus());
+        payload.put("soilMoistureStatus", reading.getSoilMoistureStatus());
+        payload.put("healthy", reading.getHealthy());
+        payload.put("message", reading.getMessage());
+        payload.put("recommendation", reading.getRecommendation());
+        payload.put("suggestedActions", reading.getSuggestedActions());
+        return payload;
+    }
+
+    private Map<String, Object> buildReadingReport(List<DetectorReading> readings) {
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("totalReadings", readings.size());
+        report.put("healthyReadings", readings.stream().filter(reading -> Boolean.TRUE.equals(reading.getHealthy())).count());
+        report.put("unhealthyReadings", readings.stream().filter(reading -> Boolean.FALSE.equals(reading.getHealthy())).count());
+        return report;
+    }
+
+    private Map<String, Object> buildReadingAnalytics(List<DetectorReading> readings) {
+        Map<String, Object> analytics = new LinkedHashMap<>();
+        analytics.put("averageTemperature", average(readings, DetectorReading::getTemperature));
+        analytics.put("averageHumidity", average(readings, DetectorReading::getHumidity));
+        analytics.put("averageSoil", average(readings, DetectorReading::getSoil));
+        analytics.put("averageSoilMoisture", average(readings, DetectorReading::getSoilMoisture));
+        analytics.put("averageGas", average(readings, DetectorReading::getGas));
+        analytics.put("averageCo2", average(readings, DetectorReading::getCo2));
+        analytics.put("maxCo2", readings.stream()
+                .map(DetectorReading::getCo2)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
+                .max()
+                .stream()
+                .boxed()
+                .findFirst()
+                .orElse(null));
+        return analytics;
+    }
+
+    private Double average(List<DetectorReading> readings, java.util.function.Function<DetectorReading, Double> valueGetter) {
+        return readings.stream()
+                .map(valueGetter)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .stream()
+                .boxed()
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean matchesFilter(CropDeceaseDetector detector, String macAddress, String location, Boolean status,
