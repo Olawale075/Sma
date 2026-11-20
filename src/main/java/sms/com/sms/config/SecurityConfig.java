@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/detect/**"
                         ).authenticated()
+                        .requestMatchers("/api/detections/**").authenticated()
                         .requestMatchers(
                                 "/payments/callback",
                                 "/payments/webhook",

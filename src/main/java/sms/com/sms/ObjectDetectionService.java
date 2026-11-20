@@ -304,6 +304,12 @@ public class ObjectDetectionService {
 
     public List<DetectionResult> detectEverything(byte[] imageData, String focus, Language language,
                                                  Integer maxAttemptsOverride) throws IOException {
+        return detectEverything(imageData, focus, language, maxAttemptsOverride, null, null);
+    }
+
+    public List<DetectionResult> detectEverything(byte[] imageData, String focus, Language language,
+                                                 Integer maxAttemptsOverride, Double temperature,
+                                                 Double humidity) throws IOException {
         String normalizedFocus = normalizeFocus(focus);
         Language responseLanguage = language == null ? Language.EN : language;
 
@@ -324,7 +330,7 @@ public class ObjectDetectionService {
                 lastAiModeUsed = AI_MODE_GEMINI;
                 logger.info("Running detection with AI mode: {}", lastAiModeUsed);
                 String responseText = callGeminiVisionApi(
-                        imageData, normalizedFocus, responseLanguage, maxAttemptsOverride);
+                        imageData, normalizedFocus, responseLanguage, maxAttemptsOverride, temperature, humidity);
                 return parseDetections(responseText, normalizedFocus);
             } catch (IOException geminiException) {
                 if (!isOpenAiConfigured()) throw geminiException;
@@ -335,7 +341,7 @@ public class ObjectDetectionService {
         lastAiModeUsed = AI_MODE_OPENAI;
         logger.info("Running detection with AI mode: {}", lastAiModeUsed);
         String responseText = callOpenAIVisionApi(
-                imageData, normalizedFocus, responseLanguage, maxAttemptsOverride);
+                imageData, normalizedFocus, responseLanguage, maxAttemptsOverride, temperature, humidity);
         return parseDetections(responseText, normalizedFocus);
     }
 
@@ -395,7 +401,8 @@ public class ObjectDetectionService {
 
 
     private String callGeminiVisionApi(byte[] imageData, String focus, Language language,
-                                       Integer maxAttemptsOverride) throws IOException {
+                                       Integer maxAttemptsOverride, Double temperature,
+                                       Double humidity) throws IOException {
         try {
             String mimeType = detectImageMimeType(imageData);
             String base64Image = Base64.getEncoder().encodeToString(imageData);
@@ -405,7 +412,7 @@ public class ObjectDetectionService {
             inlineData.put("data", base64Image);
 
             Map<String, Object> textPart = new LinkedHashMap<>();
-            textPart.put("text", buildPrompt(focus, language));
+            textPart.put("text", buildPrompt(focus, language, temperature, humidity));
 
             Map<String, Object> imagePart = new LinkedHashMap<>();
             imagePart.put("inline_data", inlineData);
@@ -491,7 +498,8 @@ public class ObjectDetectionService {
     // ================================================================
 
     private String callOpenAIVisionApi(byte[] imageData, String focus, Language language,
-                                       Integer maxAttemptsOverride) throws IOException {
+                                       Integer maxAttemptsOverride, Double temperature,
+                                       Double humidity) throws IOException {
         try {
             String mimeType = detectImageMimeType(imageData);
             String base64Image = Base64.getEncoder().encodeToString(imageData);
@@ -503,7 +511,7 @@ public class ObjectDetectionService {
                     "messages", List.of(Map.of(
                             "role", "user",
                             "content", List.of(
-                                    Map.of("type", "text", "text", buildPrompt(focus, language)),
+                                    Map.of("type", "text", "text", buildPrompt(focus, language, temperature, humidity)),
                                     Map.of("type", "image_url",
                                             "image_url", Map.of("url",
                                                     "data:" + mimeType + ";base64," + base64Image))
@@ -680,7 +688,16 @@ public class ObjectDetectionService {
     // UNIVERSAL PROMPT
     // ================================================================
 
-    private String buildPrompt(String focus, Language language) {
+    private String buildPrompt(String focus, Language language, Double temperature, Double humidity) {
+        String environmentalContext = temperature == null && humidity == null
+                ? "No temperature or humidity readings were provided.\n"
+                : "Environmental sensor readings (temperature in Celsius, relative humidity in percent): "
+                        + (temperature == null ? "temperature unavailable" : temperature + " °C")
+                        + "; "
+                        + (humidity == null ? "humidity unavailable" : humidity + "%")
+                        + ". Use these readings as supporting context when assessing plant health and tailoring "
+                        + "treatment/prevention advice. Do not claim that sensor readings prove a visible disease, "
+                        + "and do not treat them as image observations.\n";
         return String.format(
                 "You are a universal visual recognition assistant. " +
                         "Identify EVERYTHING visible in the image: people, animals, plants, food, vehicles, " +
@@ -688,6 +705,7 @@ public class ObjectDetectionService {
                         "If a plant or crop is present, also detect any diseases, pests, or nutrient deficiencies. " +
                         "If a human or animal is present, describe what they are doing and any visible health signs. " +
                         "User focus hint: '%s' (may be 'General').\n" +
+                        "%s" +
                         "Write all human-readable text values in %s. Keep JSON keys, domain values, " +
                         "health status values, and severity values exactly as specified in English.\n\n" +
 
@@ -719,6 +737,7 @@ public class ObjectDetectionService {
                         "- Use specific labels, not just 'object' or 'thing'.\n" +
                         "- If nothing is recognizable, return an empty items array.\n",
                 focus == null || focus.isBlank() ? DEFAULT_FOCUS : focus,
+                environmentalContext,
                 getLanguageName(language),
                 MAX_DETECTIONS);
     }

@@ -13,6 +13,7 @@ import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
 import sms.com.sms.repository.GasDetectorRepository;
 import sms.com.sms.repository.UsersRepository;
+import sms.com.sms.service.DetectionHistoryService;
 import sms.com.sms.service.EmailService;
 
 import java.io.IOException;
@@ -38,13 +39,16 @@ public class DetectionController {
     private final EmailService emailService;
     private final UsersRepository usersRepository;
     private final GasDetectorRepository gasDetectorRepository;
+    private final DetectionHistoryService detectionHistoryService;
 
     public DetectionController(ObjectDetectionService detectionService, EmailService emailService,
-                              UsersRepository usersRepository, GasDetectorRepository gasDetectorRepository) {
+                              UsersRepository usersRepository, GasDetectorRepository gasDetectorRepository,
+                              DetectionHistoryService detectionHistoryService) {
         this.detectionService = detectionService;
         this.emailService = emailService;
         this.usersRepository = usersRepository;
         this.gasDetectorRepository = gasDetectorRepository;
+        this.detectionHistoryService = detectionHistoryService;
     }
 
     @PostMapping("/image")
@@ -57,7 +61,9 @@ public class DetectionController {
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "deviceId", required = false) String deviceId,
             @RequestParam(value = "location", required = false) String location,
-            @RequestParam(value = "language", required = false) String languageCode) {
+            @RequestParam(value = "language", required = false) String languageCode,
+            @RequestParam(value = "temperature", required = false) Double temperature,
+            @RequestParam(value = "humidity", required = false) Double humidity) {
 
         // ---- validation ----
         if (image == null || image.isEmpty()) {
@@ -69,6 +75,12 @@ public class DetectionController {
         String contentType = image.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             return badRequest("unsupported content type: " + contentType);
+        }
+        if (temperature != null && (!Double.isFinite(temperature) || temperature < -50 || temperature > 80)) {
+            return badRequest("temperature must be between -50 and 80 degrees Celsius");
+        }
+        if (humidity != null && (!Double.isFinite(humidity) || humidity < 0 || humidity > 100)) {
+            return badRequest("humidity must be between 0 and 100 percent");
         }
 
         // ---- resolve focus (new field first, legacy fallback) ----
@@ -104,12 +116,16 @@ public class DetectionController {
                             image.getBytes(),
                             effectiveFocus,
                             language,
-                            FRONTEND_MAX_GEMINI_ATTEMPTS);
+                            FRONTEND_MAX_GEMINI_ATTEMPTS,
+                            temperature,
+                            humidity);
 
             if (results.isEmpty()) {
                 return serverError("The analysis did not return any results");
             }
-            if (usersRepository.deductAiTokens(user.getPhonenumber(), BigDecimal.TEN) == 0) {
+            if (!detectionHistoryService.chargeAndSave(
+                    user.getPhonenumber(), deviceId, location, effectiveFocus, language.getCode(),
+                    temperature, humidity, results)) {
                 return ResponseEntity.status(402).body(Map.of(
                         "success", false,
                         "error", "Insufficient AI token balance. Please top up your AITokenBalance."));
@@ -120,6 +136,8 @@ public class DetectionController {
             response.put("count", results.size());
             response.put("focus", effectiveFocus);
             response.put("language", language.getCode());
+            response.put("temperature", temperature);
+            response.put("humidity", humidity);
             response.put("summary", results.get(0).summary);
             response.put("cropType", effectiveFocus); // legacy alias
             response.put("aiMode", detectionService.getLastAiModeUsed());
