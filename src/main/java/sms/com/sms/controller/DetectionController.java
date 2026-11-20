@@ -186,10 +186,16 @@ public class DetectionController {
 
     private Users getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof Users) {
-            return (Users) authentication.getPrincipal();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
         }
-        return null;
+
+        String phoneNumber = authentication.getName();
+        if (!isNotBlank(phoneNumber) || "anonymousUser".equals(phoneNumber)) {
+            return null;
+        }
+
+        return usersRepository.findByPhonenumber(phoneNumber).orElse(null);
     }
 
     private void sendCropAlertEmail(MultipartFile image,
