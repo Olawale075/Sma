@@ -38,7 +38,7 @@ public class EmailVerificationService {
         if (!sendOtpEmail(email, otp)) {
             return ResponseEntity.internalServerError().body("Failed to send email verification code");
         }
-        otpStore.put(email, new OtpEntry(otp, LocalDateTime.now().plusMinutes(5)));
+        otpStore.put(email, new OtpEntry(otp, LocalDateTime.now().plusMinutes(10)));
 
         return ResponseEntity.ok("Verification code sent");
     }

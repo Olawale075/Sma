@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class OTPService {
 
     private static final Map<String, OtpEntry> otpCache = new ConcurrentHashMap<>();
-    private static final int EXPIRE_MINUTES = 5;
+    private static final int EXPIRE_MINUTES = 10;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     public String generateOtp(String phoneNumber) {

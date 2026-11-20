@@ -118,7 +118,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     public String sendOtp(String phoneNumber) {
 
         if (phoneNumber == null) {
-            throw new IllegalArgumentException("Phone number is required");
+            return "Phone number is required";
         }
 
         if (!phoneNumber.startsWith("234")) {
@@ -126,13 +126,13 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         }
 
         if (isPhonenumberRegistered(phoneNumber)) {
-            throw new IllegalArgumentException("Phone number already used");
+            return "Phone number already used";
         }
 
         String otp = otpService.generateOtp(phoneNumber);
 
         String message = "Dear User, your verification PIN is " + otp +
-                ". Valid for 5 minutes. One-time use only.";
+                ". Valid for 10 minutes. One-time use only.";
 
         return smsService.sendSms(phoneNumber, message);
     }
