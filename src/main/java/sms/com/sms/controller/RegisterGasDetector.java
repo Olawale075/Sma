@@ -430,6 +430,7 @@ public class RegisterGasDetector {
        payload.put("location", detector.getLocation());
        payload.put("co2", detector.getCo2());
        payload.put("co2Threshold", detector.getCo2Threshold());
+       payload.put("detectionInterval", detector.getDetectionInterval());
        payload.put("wifiSsid", detector.getWifiSsid());
        payload.put("phoneNumbers", detector.getUsers() == null ? new ArrayList<>() : detector.getUsers().stream()
                .map(user -> user.getPhonenumber())

@@ -59,6 +59,9 @@ private Language ailanguage;
     @Column(name = "co2_threshold")
     private Double co2Threshold;
 
+    @Column(name = "detection_interval")
+    private Integer detectionInterval;
+
     @Column(name = "wifi_ssid")
     private String wifiSsid;
 

@@ -31,6 +31,7 @@ public class DetectorMapper {
                     .status(detector.getStatus())
                     .co2(detector.getCo2())
                     .co2Threshold(detector.getCo2Threshold())
+                    .detectionInterval(detector.getDetectionInterval())
                     .wifiSsid(detector.getWifiSsid())
                     .wifiPassword(detector.getWifiPassword())
                     .location(detector.getLocation())
@@ -62,6 +63,7 @@ public class DetectorMapper {
                     .status(dto.getStatus())
                     .co2(dto.getCo2())
                     .co2Threshold(dto.getCo2Threshold())
+                    .detectionInterval(dto.getDetectionInterval())
                     .wifiSsid(dto.getWifiSsid())
                     .wifiPassword(dto.getWifiPassword())
                     .location(dto.getLocation())
@@ -116,6 +118,7 @@ public class DetectorMapper {
             if (dto.getStatus() != null) entity.setStatus(dto.getStatus());
          if (dto.getLanguage() != null) entity.setLanguage(dto.getLanguage());
          if (dto.getCo2Threshold() != null) entity.setCo2Threshold(dto.getCo2Threshold());
+         if (dto.getDetectionInterval() != null) entity.setDetectionInterval(dto.getDetectionInterval());
             
             if (dto.getWifiSsid() != null && !dto.getWifiSsid().trim().isEmpty()) {
                 entity.setWifiSsid(dto.getWifiSsid().trim());

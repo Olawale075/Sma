@@ -36,6 +36,9 @@ public class DetectorDTO {
     @Max(value = 10000, message = "CO2 Threshold cannot exceed 10000 ppm")
     private Double co2Threshold;
 
+    @Min(value = 1, message = "Detection interval must be at least 1")
+    private Integer detectionInterval;
+
     private String wifiSsid;
 
     private String wifiPassword;
@@ -49,6 +52,13 @@ public class DetectorDTO {
     public DetectorDTO(String macAddress, Language language, Boolean status, Double temperature, Double humidity,
                        Double co2, Double co2Threshold, String wifiSsid, String wifiPassword,
                        String location, Set<String> phoneNumbers) {
+        this(macAddress, language, status, temperature, humidity, co2, co2Threshold, null,
+                wifiSsid, wifiPassword, location, phoneNumbers);
+    }
+
+    public DetectorDTO(String macAddress, Language language, Boolean status, Double temperature, Double humidity,
+                       Double co2, Double co2Threshold, Integer detectionInterval, String wifiSsid, String wifiPassword,
+                       String location, Set<String> phoneNumbers) {
         this.macAddress = macAddress;
         this.language = language;
         this.status = status;
@@ -56,6 +66,7 @@ public class DetectorDTO {
         this.humidity = humidity;
         this.co2 = co2;
         this.co2Threshold = co2Threshold;
+        this.detectionInterval = detectionInterval;
         this.wifiSsid = wifiSsid;
         this.wifiPassword = wifiPassword;
         this.location = location;
@@ -91,6 +102,10 @@ public class DetectorDTO {
 
     public Double getCo2Threshold() {
         return co2Threshold;
+    }
+
+    public Integer getDetectionInterval() {
+        return detectionInterval;
     }
 
     public String getWifiSsid() {
@@ -140,6 +155,10 @@ public class DetectorDTO {
         this.co2Threshold = co2Threshold;
     }
 
+    public void setDetectionInterval(Integer detectionInterval) {
+        this.detectionInterval = detectionInterval;
+    }
+
     public void setWifiSsid(String wifiSsid) {
         this.wifiSsid = wifiSsid;
     }
@@ -169,6 +188,7 @@ public class DetectorDTO {
                 ", humidity=" + humidity +
                 ", co2=" + co2 +
                 ", co2Threshold=" + co2Threshold +
+                ", detectionInterval=" + detectionInterval +
                 ", wifiSsid='" + wifiSsid + '\'' +
                 ", wifiPassword='" + wifiPassword + '\'' +
                 ", location='" + location + '\'' +
@@ -197,6 +217,8 @@ public class DetectorDTO {
         if (co2 != null ? !co2.equals(that.co2) : that.co2 != null) return false;
         if (co2Threshold != null ? !co2Threshold.equals(that.co2Threshold) : that.co2Threshold != null)
             return false;
+        if (detectionInterval != null ? !detectionInterval.equals(that.detectionInterval) : that.detectionInterval != null)
+            return false;
         if (wifiSsid != null ? !wifiSsid.equals(that.wifiSsid) : that.wifiSsid != null)
             return false;
         if (wifiPassword != null ? !wifiPassword.equals(that.wifiPassword) : that.wifiPassword != null)
@@ -215,6 +237,7 @@ public class DetectorDTO {
         result = 31 * result + (humidity != null ? humidity.hashCode() : 0);
         result = 31 * result + (co2 != null ? co2.hashCode() : 0);
         result = 31 * result + (co2Threshold != null ? co2Threshold.hashCode() : 0);
+        result = 31 * result + (detectionInterval != null ? detectionInterval.hashCode() : 0);
         result = 31 * result + (wifiSsid != null ? wifiSsid.hashCode() : 0);
         result = 31 * result + (wifiPassword != null ? wifiPassword.hashCode() : 0);
         result = 31 * result + (location != null ? location.hashCode() : 0);

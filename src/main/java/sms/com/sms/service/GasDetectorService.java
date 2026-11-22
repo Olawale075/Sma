@@ -153,6 +153,11 @@ public DetectorDTO updateDetectorConfiguration(String macAddress, DetectorDTO up
             detector.setCo2Threshold(updatedData.getCo2Threshold());
             log.info("Updated CO2 threshold: {}", updatedData.getCo2Threshold());
         }
+
+        if (updatedData.getDetectionInterval() != null) {
+            detector.setDetectionInterval(updatedData.getDetectionInterval());
+            log.info("Updated detection interval: {}", updatedData.getDetectionInterval());
+        }
         
 
         if (updatedData.getWifiSsid() != null && !updatedData.getWifiSsid().trim().isEmpty()) {
@@ -218,6 +223,11 @@ if (updatedData.getLanguage() != null ) {
             // validateCo2Threshold(updatedData.getCo2Threshold());
             detector.setCo2Threshold(updatedData.getCo2Threshold());
             log.info("Updated CO2 threshold: {}", updatedData.getCo2Threshold());
+        }
+
+        if (updatedData.getDetectionInterval() != null) {
+            detector.setDetectionInterval(updatedData.getDetectionInterval());
+            log.info("Updated detection interval: {}", updatedData.getDetectionInterval());
         }
         
         if (updatedData.getWifiSsid() != null && !updatedData.getWifiSsid().trim().isEmpty()) {
@@ -288,6 +298,9 @@ if (updatedData.getLanguage() != null ) {
             }
             if (dto.getStatus() != null) {
                 existing.setStatus(dto.getStatus());
+            }
+            if (dto.getDetectionInterval() != null) {
+                existing.setDetectionInterval(dto.getDetectionInterval());
             }
 
             // === Update linked users ===
