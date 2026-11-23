@@ -214,7 +214,8 @@ public class ObjectDetectionService {
                 String normalizedFocus = normalizeFocus(focus);
 
                 List<DetectionResult> results = detectEverything(
-                        imageData, normalizedFocus, language, null);
+                        imageData, normalizedFocus,
+                        language == null ? Language.YO : language, null);
 
                 long detectionTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
 
@@ -267,7 +268,8 @@ public class ObjectDetectionService {
                 }
 
                 String detectionJson = buildComprehensiveDetectionJson(
-                        filtered, deviceId, location, normalizedFocus);
+                        filtered, deviceId, location, normalizedFocus,
+                        language == null ? Language.YO : language);
                 webSocketHandler.sendDetectionToClients(detectionJson);
 
                 if (deviceId != null) {
@@ -329,7 +331,7 @@ public class ObjectDetectionService {
                 logger.info("Running detection with AI mode: {}", lastAiModeUsed);
                 String responseText = callGeminiVisionApi(
                         imageData, normalizedFocus, responseLanguage, maxAttemptsOverride, temperature, humidity);
-                return parseDetections(responseText, normalizedFocus);
+                return parseDetections(responseText, normalizedFocus, responseLanguage);
             } catch (IOException geminiException) {
                 if (!isOpenAiConfigured()) throw geminiException;
                 logger.warn("Gemini provider failed. Falling back to OpenAI: {}", geminiException.getMessage());
@@ -340,7 +342,7 @@ public class ObjectDetectionService {
         logger.info("Running detection with AI mode: {}", lastAiModeUsed);
         String responseText = callOpenAIVisionApi(
                 imageData, normalizedFocus, responseLanguage, maxAttemptsOverride, temperature, humidity);
-        return parseDetections(responseText, normalizedFocus);
+        return parseDetections(responseText, normalizedFocus, responseLanguage);
     }
 
     public static class GeminiServiceUnavailableException extends IOException {
@@ -756,7 +758,8 @@ public class ObjectDetectionService {
     // PARSING
     // ================================================================
 
-    private List<DetectionResult> parseDetections(String responseText, String focus) throws IOException {
+    private List<DetectionResult> parseDetections(String responseText, String focus,
+                                                  Language language) throws IOException {
         try {
             String jsonText = stripToJson(responseText);
             Object parsed = objectMapper.readValue(jsonText, Object.class);
@@ -769,16 +772,16 @@ public class ObjectDetectionService {
                 Object items = responseMap.get("items");
                 if (items instanceof List<?> list) {
                     for (Object item : list) {
-                        DetectionResult d = parseDetectionItem(item, focus);
+                        DetectionResult d = parseDetectionItem(item, focus, language);
                         if (d != null && d.probability >= MIN_CONFIDENCE) detections.add(d);
                     }
                 } else {
-                    DetectionResult single = parseDetectionItem(responseMap, focus);
+                    DetectionResult single = parseDetectionItem(responseMap, focus, language);
                     if (single != null && single.probability >= MIN_CONFIDENCE) detections.add(single);
                 }
             } else if (parsed instanceof List<?> list) {
                 for (Object item : list) {
-                    DetectionResult d = parseDetectionItem(item, focus);
+                    DetectionResult d = parseDetectionItem(item, focus, language);
                     if (d != null && d.probability >= MIN_CONFIDENCE) detections.add(d);
                 }
             }
@@ -797,7 +800,7 @@ public class ObjectDetectionService {
         }
     }
 
-    private DetectionResult parseDetectionItem(Object item, String focus) {
+    private DetectionResult parseDetectionItem(Object item, String focus, Language language) {
         if (!(item instanceof Map<?, ?> map)) return null;
 
         Object classNameValue = map.get("className");
@@ -842,9 +845,9 @@ public class ObjectDetectionService {
         List<String> aiPrevention = toStringList(map.get("prevention"));
         String aiWhenToAct = toNonBlankString(map.get("whenToAct"));
 
-        String treatment = resolveTreatment(className, domain, healthStatus, severity, aiTreatment);
-        List<String> prevention = resolvePrevention(className, domain, healthStatus, aiPrevention);
-        String whenToAct = resolveActionWindow(severity, healthStatus, aiWhenToAct);
+        String treatment = resolveTreatment(className, domain, healthStatus, severity, aiTreatment, language);
+        List<String> prevention = resolvePrevention(className, domain, healthStatus, aiPrevention, language);
+        String whenToAct = resolveActionWindow(severity, healthStatus, aiWhenToAct, language);
 
         DetectionResult result = new DetectionResult(
                 className, probability, x, y, width, height,
@@ -854,6 +857,9 @@ public class ObjectDetectionService {
         result.healthStatus = healthStatus;
         result.severity = severity;
         result.conditionName = conditionName;
+        result.domainLabel = getDomainLabel(domain, language);
+        result.healthStatusLabel = getHealthStatusLabel(healthStatus, language);
+        result.severityDescription = getSeverityDescription(severity, language);
         return result;
     }
 
@@ -1100,62 +1106,222 @@ public class ObjectDetectionService {
     // ================================================================
 
     private String resolveTreatment(String className, Domain domain, String healthStatus,
-                                    Severity severity, String aiTreatment) {
+                                    Severity severity, String aiTreatment, Language language) {
         if (aiTreatment != null) return aiTreatment;
 
         if (!"diseased".equalsIgnoreCase(healthStatus)
                 && !"injured".equalsIgnoreCase(healthStatus)) {
-            if (domain == Domain.PLANT) return "Plant appears healthy. Keep monitoring.";
-            if (domain == Domain.LIVING_THING) return "Subject appears healthy.";
-            return "No action required.";
+            if (domain == Domain.PLANT) {
+                return localized(language,
+                        "Plant appears healthy. Keep monitoring.",
+                        "Ohun ọ̀gbìn náà dà bí ẹni pé ó wà ní ìlera. Máa ṣe àkíyèsí rẹ̀ déédéé.",
+                        "La plante semble en bonne santé. Continuez à la surveiller.");
+            }
+            if (domain == Domain.LIVING_THING) {
+                return localized(language, "Subject appears healthy.",
+                        "Ohun alààyè náà dà bí ẹni pé ó wà ní ìlera.",
+                        "Le sujet semble en bonne santé.");
+            }
+            return localized(language, "No action required.",
+                    "Kò sí ìgbésẹ̀ kankan tó yẹ kí o gbé.",
+                    "Aucune action nécessaire.");
         }
 
         if (domain == Domain.PLANT) {
-            return "Remove affected parts, apply appropriate treatment, and isolate if needed.";
+            return localized(language,
+                    "Remove affected parts, apply appropriate treatment, and isolate if needed.",
+                    "Yọ àwọn apá tó ní àrùn kúrò, lo ìtọ́jú tó yẹ, kí o sì ya á sọ́tọ̀ bí ó bá yẹ.",
+                    "Retirez les parties atteintes, appliquez un traitement adapté et isolez la plante si nécessaire.");
         }
         if (domain == Domain.LIVING_THING) {
-            return "Isolate if contagious. Consult a veterinarian or doctor as appropriate.";
+            return localized(language,
+                    "Isolate if contagious. Consult a veterinarian or doctor as appropriate.",
+                    "Ya ohun alààyè náà sọ́tọ̀ bí àrùn náà bá lè ràn. Bá dókítà ẹranko tàbí dókítà ènìyàn sọ̀rọ̀ bí ó bá yẹ.",
+                    "Isolez le sujet si la maladie est contagieuse. Consultez un vétérinaire ou un médecin selon le cas.");
         }
         if (domain == Domain.MEDICAL) {
-            return "Consult a qualified medical professional. This is not a diagnosis.";
+            return localized(language,
+                    "Consult a qualified medical professional. This is not a diagnosis.",
+                    "Bá ògbóǹtarìgì ìṣègùn tó mọṣẹ́ sọ̀rọ̀. Èyí kì í ṣe àyẹ̀wò àìsàn.",
+                    "Consultez un professionnel de santé qualifié. Ceci ne constitue pas un diagnostic.");
         }
-        return "Consult a relevant expert for treatment.";
+        return localized(language, "Consult a relevant expert for treatment.",
+                "Bá ògbóǹtarìgì tó yẹ sọ̀rọ̀ nípa ìtọ́jú.",
+                "Consultez un spécialiste compétent pour le traitement.");
     }
 
     private List<String> resolvePrevention(String className, Domain domain,
-                                           String healthStatus, List<String> aiPrevention) {
+                                           String healthStatus, List<String> aiPrevention,
+                                           Language language) {
         if (aiPrevention != null && !aiPrevention.isEmpty()) return aiPrevention;
 
         List<String> tips = new ArrayList<>();
         if (domain == Domain.PLANT) {
-            tips.add("Use disease-free seeds and clean tools");
-            tips.add("Ensure good spacing and drainage");
-            tips.add("Rotate crops and monitor regularly");
+            tips.add(localized(language, "Use disease-free seeds and clean tools",
+                    "Lo irúgbìn tí kò ní àrùn àti irinṣẹ́ tó mọ́",
+                    "Utilisez des semences saines et des outils propres"));
+            tips.add(localized(language, "Ensure good spacing and drainage",
+                    "Rí i dájú pé ààyè tó wà láàárín ewéko tó, tí omi sì ń ṣàn dáadáa",
+                    "Assurez un espacement adéquat et un bon drainage"));
+            tips.add(localized(language, "Rotate crops and monitor regularly",
+                    "Máa yí irúgbìn padà, kí o sì máa ṣe àkíyèsí déédéé",
+                    "Alternez les cultures et surveillez-les régulièrement"));
         } else if (domain == Domain.LIVING_THING) {
-            tips.add("Maintain hygiene and regular check-ups");
-            tips.add("Provide balanced nutrition and clean water");
+            tips.add(localized(language, "Maintain hygiene and regular check-ups",
+                    "Pa ìmọ́tótó mọ́, kí o sì máa ṣe àyẹ̀wò déédéé",
+                    "Maintenez une bonne hygiène et faites des contrôles réguliers"));
+            tips.add(localized(language, "Provide balanced nutrition and clean water",
+                    "Pèsè oúnjẹ tó péye àti omi mímọ́",
+                    "Fournissez une alimentation équilibrée et de l’eau propre"));
         } else if (domain == Domain.MEDICAL) {
-            tips.add("Seek professional evaluation");
-            tips.add("Avoid self-diagnosis");
+            tips.add(localized(language, "Seek professional evaluation",
+                    "Wá ìmọ̀ràn lọ́dọ̀ ògbóǹtarìgì ìṣègùn",
+                    "Demandez l’avis d’un professionnel de santé"));
+            tips.add(localized(language, "Avoid self-diagnosis",
+                    "Má ṣe gbìyànjú láti ṣe àyẹ̀wò àìsàn fúnra rẹ",
+                    "Évitez l’autodiagnostic"));
         } else {
-            tips.add("Continue regular monitoring");
-            tips.add("Document changes over time");
+            tips.add(localized(language, "Continue regular monitoring",
+                    "Máa ṣe àkíyèsí déédéé",
+                    "Continuez à surveiller régulièrement"));
+            tips.add(localized(language, "Document changes over time",
+                    "Máa kọ àwọn ìyípadà sílẹ̀ bí àkókò ti ń lọ",
+                    "Notez les changements au fil du temps"));
         }
         return tips;
     }
 
-    private String resolveActionWindow(Severity severity, String healthStatus, String aiWhenToAct) {
+    private String resolveActionWindow(Severity severity, String healthStatus, String aiWhenToAct,
+                                       Language language) {
         if (aiWhenToAct != null) return aiWhenToAct;
         if (!"diseased".equalsIgnoreCase(healthStatus)
                 && !"injured".equalsIgnoreCase(healthStatus)) {
-            return "No immediate action required.";
+            return localized(language, "No immediate action required.",
+                    "Kò sí ìgbésẹ̀ kánjúkánjú tó yẹ kí o gbé.",
+                    "Aucune action immédiate n’est nécessaire.");
         }
         return switch (severity) {
-            case CRITICAL -> "Take action within 24 hours.";
-            case HIGH     -> "Take action within 1-2 days.";
-            case MODERATE -> "Take action within 3-5 days.";
-            case LOW      -> "Monitor and act if it worsens.";
-            case NONE     -> "No action required.";
+            case CRITICAL -> localized(language, "Take action within 24 hours.",
+                    "Gbé ìgbésẹ̀ láàárín wákàtí 24.",
+                    "Agissez dans les 24 heures.");
+            case HIGH -> localized(language, "Take action within 1-2 days.",
+                    "Gbé ìgbésẹ̀ láàárín ọjọ́ kan sí méjì.",
+                    "Agissez dans un délai de 1 à 2 jours.");
+            case MODERATE -> localized(language, "Take action within 3-5 days.",
+                    "Gbé ìgbésẹ̀ láàárín ọjọ́ mẹ́ta sí márùn-ún.",
+                    "Agissez dans un délai de 3 à 5 jours.");
+            case LOW -> localized(language, "Monitor and act if it worsens.",
+                    "Máa ṣe àkíyèsí rẹ̀, kí o sì gbé ìgbésẹ̀ bí ó bá burú sí i.",
+                    "Surveillez la situation et agissez si elle s’aggrave.");
+            case NONE -> localized(language, "No action required.",
+                    "Kò sí ìgbésẹ̀ kankan tó yẹ kí o gbé.",
+                    "Aucune action nécessaire.");
+        };
+    }
+
+    private String localized(Language language, String english, String yoruba, String french) {
+        return switch (language == null ? Language.YO : language) {
+            case EN -> english;
+            case YO -> yoruba;
+            case FR -> french;
+        };
+    }
+
+    private String getSeverityDescription(Severity severity, Language language) {
+        return switch (language == null ? Language.YO : language) {
+            case EN -> severity.description;
+            case YO -> switch (severity) {
+                case CRITICAL -> "A gbọ́dọ̀ gbé ìgbésẹ̀ lẹ́sẹ̀kẹsẹ̀";
+                case HIGH -> "Ó le gan-an — gbé ìgbésẹ̀ láìpẹ́";
+                case MODERATE -> "Ṣe àkíyèsí rẹ̀ kí o sì gbé ìgbésẹ̀";
+                case LOW -> "Àwọn àmì àkọ́kọ́ — ṣe àkíyèsí";
+                case NONE -> "Kò sí ìṣòro";
+            };
+            case FR -> switch (severity) {
+                case CRITICAL -> "Action immédiate requise";
+                case HIGH -> "Grave — agissez rapidement";
+                case MODERATE -> "Surveillez et agissez";
+                case LOW -> "Premiers signes — à surveiller";
+                case NONE -> "Aucun problème";
+            };
+        };
+    }
+
+    private String getDomainLabel(Domain domain, Language language) {
+        if (domain == null) domain = Domain.UNKNOWN;
+        return switch (language == null ? Language.YO : language) {
+            case EN -> switch (domain) {
+                case LIVING_THING -> "Living thing";
+                case PLANT -> "Plant";
+                case FOOD -> "Food";
+                case VEHICLE -> "Vehicle";
+                case BUILDING -> "Building";
+                case ELECTRONICS -> "Electronics";
+                case FURNITURE -> "Furniture";
+                case CLOTHING -> "Clothing";
+                case TOOL -> "Tool";
+                case NATURE -> "Nature";
+                case SCENE -> "Scene";
+                case DOCUMENT -> "Document";
+                case MEDICAL -> "Medical";
+                case UNKNOWN -> "Unknown";
+            };
+            case YO -> switch (domain) {
+                case LIVING_THING -> "Ohun alààyè";
+                case PLANT -> "Ohun ọ̀gbìn";
+                case FOOD -> "Oúnjẹ";
+                case VEHICLE -> "Ọkọ̀";
+                case BUILDING -> "Ilé";
+                case ELECTRONICS -> "Ẹ̀rọ itanna";
+                case FURNITURE -> "Ohun èlò ilé";
+                case CLOTHING -> "Aṣọ";
+                case TOOL -> "Irinṣẹ́";
+                case NATURE -> "Ìṣẹ̀dá";
+                case SCENE -> "Ìran àwòrán";
+                case DOCUMENT -> "Ìwé";
+                case MEDICAL -> "Ìṣègùn";
+                case UNKNOWN -> "A kò mọ̀";
+            };
+            case FR -> switch (domain) {
+                case LIVING_THING -> "Être vivant";
+                case PLANT -> "Plante";
+                case FOOD -> "Nourriture";
+                case VEHICLE -> "Véhicule";
+                case BUILDING -> "Bâtiment";
+                case ELECTRONICS -> "Électronique";
+                case FURNITURE -> "Mobilier";
+                case CLOTHING -> "Vêtement";
+                case TOOL -> "Outil";
+                case NATURE -> "Nature";
+                case SCENE -> "Scène";
+                case DOCUMENT -> "Document";
+                case MEDICAL -> "Médical";
+                case UNKNOWN -> "Inconnu";
+            };
+        };
+    }
+
+    private String getHealthStatusLabel(String healthStatus, Language language) {
+        String status = healthStatus == null ? "unknown" : healthStatus.toLowerCase();
+        return switch (language == null ? Language.YO : language) {
+            case EN -> switch (status) {
+                case "healthy" -> "Healthy";
+                case "diseased" -> "Diseased";
+                case "injured" -> "Injured";
+                default -> "Unknown";
+            };
+            case YO -> switch (status) {
+                case "healthy" -> "Ó wà ní ìlera";
+                case "diseased" -> "Ó ní àrùn";
+                case "injured" -> "Ó fara pa";
+                default -> "A kò mọ̀";
+            };
+            case FR -> switch (status) {
+                case "healthy" -> "En bonne santé";
+                case "diseased" -> "Malade";
+                case "injured" -> "Blessé";
+                default -> "Inconnu";
+            };
         };
     }
 
@@ -1165,10 +1331,11 @@ public class ObjectDetectionService {
 
     private String buildComprehensiveDetectionJson(
             List<DetectionResult> allResults,
-            String deviceId, String location, String focus) {
+            String deviceId, String location, String focus, Language language) {
 
         try {
             Map<String, Object> response = new LinkedHashMap<>();
+            response.put("language", language.getCode());
             response.put("type", "universal_detection");
             response.put("deviceId", deviceId != null ? deviceId : "unknown");
             response.put("location", location != null ? location : "unknown");
@@ -1192,21 +1359,25 @@ public class ObjectDetectionService {
                 response.put("topDetection", top.className);
                 response.put("topConfidence", Math.round(top.probability * 100));
                 response.put("topDomain", top.domain != null ? top.domain.name() : "UNKNOWN");
+                response.put("topDomainLabel", getDomainLabel(top.domain, language));
                 response.put("isEarlyLife", isEarlyLifeStage(top.className));
                 response.put("severity", top.severity);
-                response.put("severityDescription", top.severity.description);
+                response.put("severityDescription", getSeverityDescription(top.severity, language));
                 response.put("requiresAction",
                         top.severity == Severity.CRITICAL || top.severity == Severity.HIGH);
                 response.put("healthStatus", top.healthStatus);
+                response.put("healthStatusLabel", getHealthStatusLabel(top.healthStatus, language));
             } else {
                 response.put("healthStatus", "NO_DETECTION");
+                response.put("healthStatusLabel", localized(language,
+                        "Nothing detected.", "A kò rí ohun kankan.", "Aucun élément détecté."));
             }
 
             response.put("results", allResults.stream()
                     .map(this::buildResultItem)
                     .collect(Collectors.toList()));
 
-            response.put("summary", buildSummary(allResults));
+            response.put("summary", buildSummary(allResults, language));
 
             return objectMapper.writeValueAsString(response);
 
@@ -1220,22 +1391,36 @@ public class ObjectDetectionService {
         }
     }
 
-    private String buildSummary(List<DetectionResult> results) {
-        if (results.isEmpty()) return "Nothing recognizable detected.";
+    private String buildSummary(List<DetectionResult> results, Language language) {
+        if (results.isEmpty()) {
+            return localized(language, "Nothing recognizable detected.",
+                    "A kò rí ohun tí a lè dá mọ̀.",
+                    "Aucun élément reconnaissable n’a été détecté.");
+        }
         if (results.get(0).summary != null && !results.get(0).summary.isBlank()) {
             return results.get(0).summary;
         }
         DetectionResult top = results.get(0);
-        String base = String.format("Detected %d item(s). Most likely: %s (%.0f%%).",
-                results.size(), top.className, top.probability * 100);
-        if (isEarlyLifeStage(top.className)) base += " Early life stage detected.";
-        return base;
+        String earlyLife = isEarlyLifeStage(top.className)
+                ? localized(language, " Early life stage detected.",
+                        " A rí ìpele ìbẹ̀rẹ̀ ìgbésí ayé.",
+                        " Stade précoce détecté.")
+                : "";
+        return switch (language == null ? Language.YO : language) {
+            case EN -> String.format("Detected %d item(s). Most likely: %s (%.0f%%).%s",
+                    results.size(), top.className, top.probability * 100, earlyLife);
+            case YO -> String.format("A rí ohun %d. Èyí tó ṣeé ṣe jù ni: %s (%.0f%%).%s",
+                    results.size(), top.className, top.probability * 100, earlyLife);
+            case FR -> String.format("%d élément(s) détecté(s). Le plus probable : %s (%.0f%%).%s",
+                    results.size(), top.className, top.probability * 100, earlyLife);
+        };
     }
 
     private Map<String, Object> buildResultItem(DetectionResult r) {
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("className", r.className);
         item.put("domain", r.domain != null ? r.domain.name() : "UNKNOWN");
+        item.put("domainLabel", r.domainLabel);
         item.put("probability", r.probability);
         item.put("confidence", Math.round(r.probability * 100));
         item.put("isHealthIssue", isHealthIssue(r.className));
@@ -1243,8 +1428,9 @@ public class ObjectDetectionService {
         item.put("isEarlyLife", isEarlyLifeStage(r.className));
         item.put("isHealthy", isHealthy(r.className));
         item.put("healthStatus", r.healthStatus);
+        item.put("healthStatusLabel", r.healthStatusLabel);
         item.put("severity", r.severity);
-        item.put("severityDescription", r.severity.description);
+        item.put("severityDescription", r.severityDescription);
         item.put("conditionName", r.conditionName);
         item.put("treatment", r.treatment);
         item.put("prevention", r.prevention);
@@ -1381,6 +1567,9 @@ public class ObjectDetectionService {
         public Map<String, Object> attributes = new LinkedHashMap<>();
         public String healthStatus = "unknown";
         public Severity severity = Severity.NONE;
+        public String domainLabel;
+        public String healthStatusLabel;
+        public String severityDescription;
         public String conditionName;
         public String summary;
         public String treatment;

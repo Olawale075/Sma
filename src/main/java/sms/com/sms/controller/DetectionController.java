@@ -164,17 +164,20 @@ public class DetectionController {
                 response.put("confidence", top.probability);
                 response.put("confidencePercent", Math.round(top.probability * 100));
                 response.put("healthStatus", top.healthStatus);
+                response.put("healthStatusLabel", top.healthStatusLabel);
                 response.put("severity", top.severity);
+                response.put("severityDescription", top.severityDescription);
                 response.put("requiresAction",
                         top.severity == ObjectDetectionService.Severity.CRITICAL ||
                                 top.severity == ObjectDetectionService.Severity.HIGH);
+                response.put("topDomainLabel", top.domainLabel);
                 response.put("conditionName", top.conditionName);
                 response.put("treatment", top.treatment != null ? top.treatment : null);
                 response.put("whenToAct", top.whenToAct);
 
                 if (shouldSendCropAlert(results)) {
                     try {
-                        sendCropAlertEmail(image, results, email, deviceId, effectiveFocus, location);
+                        sendCropAlertEmail(image, results, email, deviceId, effectiveFocus, location, language);
                     } catch (Exception ex) {
                         log.warn("Crop alert email could not be sent for image: {}", ex.getMessage());
                     }
@@ -230,7 +233,8 @@ public class DetectionController {
                                    String email,
                                    String deviceId,
                                    String focus,
-                                   String location) throws IOException {
+                                   String location,
+                                   Language language) throws IOException {
         if (image == null || image.isEmpty()) {
             return;
         }
@@ -248,25 +252,52 @@ public class DetectionController {
             return;
         }
 
-        String subject = "Crop Alert: " + alertResult.className + " detected";
+        String subject = localized(language,
+                "Crop Alert: " + alertResult.className + " detected",
+                "Ìkìlọ̀ nípa ohun ọ̀gbìn: a rí " + alertResult.className,
+                "Alerte culture : " + alertResult.className + " détecté");
         String imageMimeType = image.getContentType() != null && image.getContentType().startsWith("image/")
                 ? image.getContentType() : "image/jpeg";
         byte[] imageBytes = image.getBytes();
         String imageDataUri = "data:" + imageMimeType + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
 
-        String html = "<h2>Crop health alert</h2>"
-                + "<p><strong>Detected issue:</strong> " + escapeHtml(alertResult.className) + "</p>"
-                + "<p><strong>Severity:</strong> " + alertResult.severity + "</p>"
-                + "<p><strong>Health status:</strong> " + (alertResult.healthStatus != null ? alertResult.healthStatus : "unknown") + "</p>"
-                + "<p><strong>Focus:</strong> " + escapeHtml(focus) + "</p>"
-                + "<p><strong>Location:</strong> " + escapeHtml(location != null ? location : "Not provided") + "</p>"
-                + "<p><strong>Confidence:</strong> " + Math.round(alertResult.probability * 100) + "%</p>"
-                + "<p><strong>Recommendation:</strong> " + escapeHtml(alertResult.treatment != null ? alertResult.treatment : "Please inspect the crop immediately.") + "</p>"
-                + "<p><strong>Action window:</strong> " + escapeHtml(alertResult.whenToAct != null ? alertResult.whenToAct : "Inspect as soon as possible.") + "</p>"
+        String html = "<h2>" + localized(language, "Crop health alert",
+                "Ìkìlọ̀ nípa ìlera ohun ọ̀gbìn", "Alerte sur la santé des cultures") + "</h2>"
+                + "<p><strong>" + localized(language, "Detected issue:", "Ìṣòro tí a rí:", "Problème détecté :")
+                + "</strong> " + escapeHtml(alertResult.className) + "</p>"
+                + "<p><strong>" + localized(language, "Severity:", "Bí ìṣòro náà ṣe le:", "Gravité :")
+                + "</strong> " + escapeHtml(alertResult.severityDescription) + "</p>"
+                + "<p><strong>" + localized(language, "Health status:", "Ipò ìlera:", "État de santé :")
+                + "</strong> " + escapeHtml(alertResult.healthStatusLabel) + "</p>"
+                + "<p><strong>" + localized(language, "Focus:", "Ohun tí a dojú kọ:", "Sujet :")
+                + "</strong> " + escapeHtml(focus) + "</p>"
+                + "<p><strong>" + localized(language, "Location:", "Ibi:", "Emplacement :")
+                + "</strong> " + escapeHtml(location != null ? location
+                        : localized(language, "Not provided", "A kò pèsè", "Non indiqué")) + "</p>"
+                + "<p><strong>" + localized(language, "Confidence:", "Ìgbẹ́kẹ̀lé:", "Niveau de confiance :")
+                + "</strong> " + Math.round(alertResult.probability * 100) + "%</p>"
+                + "<p><strong>" + localized(language, "Recommendation:", "Ìmọ̀ràn:", "Recommandation :")
+                + "</strong> " + escapeHtml(alertResult.treatment != null ? alertResult.treatment
+                        : localized(language, "Please inspect the crop immediately.",
+                                "Jọ̀wọ́ ṣàyẹ̀wò ohun ọ̀gbìn náà lẹ́sẹ̀kẹsẹ̀.",
+                                "Veuillez inspecter la culture immédiatement.")) + "</p>"
+                + "<p><strong>" + localized(language, "Action window:", "Ìgbà ìgbésẹ̀:", "Délai d’action :")
+                + "</strong> " + escapeHtml(alertResult.whenToAct != null ? alertResult.whenToAct
+                        : localized(language, "Inspect as soon as possible.",
+                                "Ṣàyẹ̀wò rẹ̀ ní kíákíá.",
+                                "Inspectez dès que possible.")) + "</p>"
                 + "<div style='margin-top:16px;'><img src='" + imageDataUri + "' alt='Crop alert image' style='max-width:100%; border-radius:8px; border:1px solid #ddd;' /></div>";
 
         emailService.sendEmail(recipient, subject, html);
         log.info("Sent crop alert email to {} for device {} with issue {}", recipient, deviceId, alertResult.className);
+    }
+
+    private String localized(Language language, String english, String yoruba, String french) {
+        return switch (language == null ? Language.YO : language) {
+            case EN -> english;
+            case YO -> yoruba;
+            case FR -> french;
+        };
     }
 
     private String resolveRecipientEmail(String email, String deviceId) {

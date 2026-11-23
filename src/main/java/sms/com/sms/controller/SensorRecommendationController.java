@@ -46,11 +46,15 @@ public class SensorRecommendationController {
         CropDeceaseDetector detector = mac == null || mac.isBlank()
                 ? null
                 : gasDetectorRepository.findByMacAddress(mac.trim());
-        Language language = getUserPreferredLanguage(detector);
+        Language language = getAuthenticatedUserPreferredLanguage();
         if (language == null) {
-            language = request.getLanguage() != null
-                    ? request.getLanguage()
-                    : Language.YO;
+            language = request.getLanguage();
+        }
+        if (language == null) {
+            language = getDetectorPreferredLanguage(detector);
+        }
+        if (language == null) {
+            language = Language.YO;
         }
 
         // Build a DetectorReading from incoming DTO
@@ -125,18 +129,19 @@ public class SensorRecommendationController {
         return ResponseEntity.ok(response);
     }
 
-    private Language getUserPreferredLanguage(CropDeceaseDetector detector) {
+    private Language getAuthenticatedUserPreferredLanguage() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated()
                 && !"anonymousUser".equals(authentication.getName())) {
-            Language preferredLanguage = usersRepository.findByPhonenumber(authentication.getName())
+            return usersRepository.findByPhonenumber(authentication.getName())
                     .map(user -> user.getPreferredLanguage())
                     .orElse(null);
-            if (preferredLanguage != null) {
-                return preferredLanguage;
-            }
         }
 
+        return null;
+    }
+
+    private Language getDetectorPreferredLanguage(CropDeceaseDetector detector) {
         if (detector == null) {
             return null;
         }
