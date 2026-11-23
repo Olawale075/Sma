@@ -24,8 +24,8 @@ import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorato
 
 import sms.com.sms.ObjectDetectionService;
 import sms.com.sms.enums.Language;
-import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.repository.GasDetectorRepository;
+import sms.com.sms.repository.UsersRepository;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -131,15 +131,18 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
      * ============================================================ */
 
     private final GasDetectorRepository gasDetectorRepository;
+    private final UsersRepository usersRepository;
 
     public CameraWebSocketHandler(
             ObjectMapper objectMapper,
             @Lazy ObjectDetectionService objectDetectionService,
-            GasDetectorRepository gasDetectorRepository
+            GasDetectorRepository gasDetectorRepository,
+            UsersRepository usersRepository
     ) {
         this.objectMapper = objectMapper;
         this.objectDetectionService = objectDetectionService;
         this.gasDetectorRepository = gasDetectorRepository;
+        this.usersRepository = usersRepository;
     }
 
     /* ============================================================
@@ -361,14 +364,18 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
                 json.path("cropType").asText(null),
                 "General"
         );
-        Language language;
+        Language requestedLanguage;
         try {
             String languageCode = firstNonBlank(json.path("language").asText(null), null);
-            language = languageCode == null ? getStoredLanguage(deviceId) : Language.fromCode(languageCode);
+            requestedLanguage = languageCode == null ? null : Language.fromCode(languageCode);
         } catch (IllegalArgumentException e) {
             sendError(session, "Unsupported language. Use en, yo, or fr.");
             return;
         }
+        Language userLanguage = getLinkedUsersPreferredLanguage(deviceId);
+        Language language = userLanguage != null
+                ? userLanguage
+                : requestedLanguage != null ? requestedLanguage : Language.YO;
 
         boolean isCamera =
                 deviceType.equalsIgnoreCase("ESP32-CAM") ||
@@ -468,11 +475,6 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
             return;
         }
 
-        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId);
-        if (detector != null) {
-            detector.setLanguage(language);
-            gasDetectorRepository.save(detector);
-        }
         deviceLanguages.put(deviceId, language);
 
         ObjectNode response = objectMapper.createObjectNode();
@@ -483,10 +485,23 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     private Language getStoredLanguage(String deviceId) {
-        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId);
-        return detector != null && detector.getLanguage() != null
-                ? detector.getLanguage()
-                : Language.EN;
+        Language userLanguage = getLinkedUsersPreferredLanguage(deviceId);
+        if (userLanguage != null) {
+            return userLanguage;
+        }
+        return deviceLanguages.getOrDefault(deviceId, Language.YO);
+    }
+
+    private Language getLinkedUsersPreferredLanguage(String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return null;
+        }
+        List<Language> preferences = usersRepository.findByCropDeceaseDetectors_MacAddress(deviceId).stream()
+                .map(user -> user.getPreferredLanguage())
+                .filter(language -> language != null)
+                .distinct()
+                .toList();
+        return preferences.size() == 1 ? preferences.get(0) : null;
     }
 
     /* ============================================================
@@ -791,7 +806,8 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
 
             String location = deviceLocations.getOrDefault(deviceId, "Unknown");
             String focus    = deviceFocus.getOrDefault(deviceId, "General");
-            Language language = deviceLanguages.computeIfAbsent(deviceId, this::getStoredLanguage);
+            Language language = getStoredLanguage(deviceId);
+            deviceLanguages.put(deviceId, language);
 
             byte[] frameForAI = frame.clone();
 
@@ -830,9 +846,9 @@ public class CameraWebSocketHandler extends AbstractWebSocketHandler {
             camera.put("deviceId",  deviceId);
             camera.put("location",  deviceLocations.getOrDefault(deviceId, "Unknown"));
             camera.put("focus",     deviceFocus.getOrDefault(deviceId, "General"));
-            camera.put("language", deviceLanguages
-                    .computeIfAbsent(deviceId, this::getStoredLanguage)
-                    .getCode());
+            Language language = getStoredLanguage(deviceId);
+            deviceLanguages.put(deviceId, language);
+            camera.put("language", language.getCode());
             camera.put("connected", isCameraConnected(deviceId));
             camera.put("frames",    frameCounters
                     .getOrDefault(deviceId, new AtomicLong(0)).get());

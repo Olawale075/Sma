@@ -89,21 +89,27 @@ public class DetectionController {
                         : isNotBlank(legacyCropType) ? legacyCropType.trim()
                           : DEFAULT_FOCUS;
 
-        Language language;
+        Language requestedLanguage;
         try {
-            language = isNotBlank(languageCode)
+            requestedLanguage = isNotBlank(languageCode)
                     ? Language.fromCode(languageCode)
-                    : getDetectorLanguage(deviceId);
+                    : null;
         } catch (IllegalArgumentException e) {
             return badRequest("Unsupported language: " + languageCode + ". Use en, yo, or fr.");
         }
-
         try {
             Users user = getAuthenticatedUser();
             if (user == null) {
                 return ResponseEntity.status(401).body(Map.of(
                         "success", false,
                         "error", "Please sign in to analyze an image."));
+            }
+            Language language = user.getPreferredLanguage();
+            if (language == null) {
+                language = getDetectorLanguage(deviceId);
+            }
+            if (language == null) {
+                language = requestedLanguage == null ? Language.YO : requestedLanguage;
             }
             if (user.getAITokenBalance().compareTo(BigDecimal.TEN) < 0) {
                 return ResponseEntity.status(402).body(Map.of(
@@ -193,13 +199,16 @@ public class DetectionController {
     }
 
     private Language getDetectorLanguage(String deviceId) {
-        if (isNotBlank(deviceId)) {
-            CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(deviceId.trim());
-            if (detector != null && detector.getLanguage() != null) {
-                return detector.getLanguage();
-            }
+        if (!isNotBlank(deviceId)) {
+            return null;
         }
-        return Language.EN;
+        List<Language> preferences = usersRepository
+                .findByCropDeceaseDetectors_MacAddress(deviceId.trim()).stream()
+                .map(Users::getPreferredLanguage)
+                .filter(language -> language != null)
+                .distinct()
+                .toList();
+        return preferences.size() == 1 ? preferences.get(0) : null;
     }
 
     private Users getAuthenticatedUser() {

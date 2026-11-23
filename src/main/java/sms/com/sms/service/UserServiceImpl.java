@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import sms.com.sms.dto.*;
+import sms.com.sms.enums.Language;
 import sms.com.sms.enums.UserRole;
 import sms.com.sms.model.CropDeceaseDetector;
 import sms.com.sms.model.Users;
@@ -87,6 +88,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                 .farmName(user.getFarmName())
                 .farmLocation(user.getFarmLocation())
                 .farmSize(user.getFarmSize())
+                .preferredLanguage(user.getPreferredLanguage())
                 // .notificationPreference(user.getNotificationPreference())
                 .build();
 
@@ -96,6 +98,43 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         result.setGasDetector(detectorDTO);
 
         return Optional.of(result);
+    }
+
+    @Transactional
+    public Optional<DetectorDTO> updateDetectorDetectionInterval(
+            String phoneNumber, String macAddress, Integer detectionInterval, Language preferredLanguage) {
+        if (detectionInterval == null && preferredLanguage == null) {
+            throw new IllegalArgumentException("Provide a detection interval, language, or both");
+        }
+        if (detectionInterval != null && detectionInterval < 1) {
+            throw new IllegalArgumentException("Detection interval must be at least 1");
+        }
+
+        String normalizedPhone = normalizePhoneNumber(phoneNumber);
+        if (normalizedPhone == null || macAddress == null || macAddress.isBlank()) {
+            return Optional.empty();
+        }
+
+        Users user = repository.findByPhonenumber(normalizedPhone).orElse(null);
+        CropDeceaseDetector detector = gasDetectorRepository.findByMacAddress(macAddress);
+        if (user == null || detector == null || user.getCropDeceaseDetectors() == null
+                || user.getCropDeceaseDetectors().stream()
+                .noneMatch(linkedDetector -> Objects.equals(linkedDetector.getMacAddress(), detector.getMacAddress()))) {
+            return Optional.empty();
+        }
+
+        if (detectionInterval != null) {
+            detector.setDetectionInterval(detectionInterval);
+        }
+        if (preferredLanguage != null) {
+            user.setPreferredLanguage(preferredLanguage);
+        }
+        CropDeceaseDetector saved = gasDetectorRepository.save(detector);
+        repository.save(user);
+        return Optional.of(DetectorDTO.builder()
+                .macAddress(saved.getMacAddress())
+                .detectionInterval(saved.getDetectionInterval())
+                .build());
     }
 
     public boolean isPhonenumberRegistered(String phoneNumber)
@@ -279,7 +318,8 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                         .farmName(user.getFarmName())
                         .farmLocation(user.getFarmLocation())
                         .farmSize(user.getFarmSize())
-                       .notificationPreference(user.getNotificationPreference())
+                        .preferredLanguage(user.getPreferredLanguage())
+                           .notificationPreference(user.getNotificationPreference())
                         .build());
     }
 
@@ -300,6 +340,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                 .farmSize(user.get().getFarmSize())
                 .AITokenBalance(user.get().getAITokenBalance())
                 .sMSTokenBalance(user.get().getsMSTokenBalance())
+                .preferredLanguage(user.get().getPreferredLanguage())
                // .notificationPreference(user.get().getNotificationPreference())
                 .build();
         return Optional.ofNullable(userDTO);
@@ -323,6 +364,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             if (dto.getNotificationPreference() != null) {
                 existing.setNotificationPreference(dto.getNotificationPreference());
             }
+            if (dto.getPreferredLanguage() != null) {
+                existing.setPreferredLanguage(dto.getPreferredLanguage());
+            }
 repository.save(existing);
             return UserDTO.builder()
                     .phoneNumbers(existing.getPhonenumber())
@@ -332,6 +376,7 @@ repository.save(existing);
                     .farmName(existing.getFarmName())
                     .farmLocation(existing.getFarmLocation())
                     .farmSize(existing.getFarmSize())
+                    .preferredLanguage(existing.getPreferredLanguage())
                    .notificationPreference(existing.getNotificationPreference())
                     .build();
         });

@@ -1,5 +1,6 @@
 package sms.com.sms.dto;
 
+import sms.com.sms.enums.Language;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,6 +24,7 @@ public class UseResponse {
     private String farmLocation;
     private String notificationPreference;
     private String farmSize;
+    private Language preferredLanguage;
 
 
 }

@@ -1,5 +1,6 @@
 package sms.com.sms.controller;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -197,6 +198,18 @@ public ResponseEntity<?> getUserGasDetails(@RequestParam String phoneNumber, @Re
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
 }
+
+    @Operation(summary = "Update detector interval and language for the authenticated user")
+    @PutMapping("/detectors/{macAddress}/detection-interval")
+    public ResponseEntity<DetectorDTO> updateDetectorDetectionInterval(
+            @PathVariable String macAddress,
+            @Valid @RequestBody DetectionIntervalRequest request) {
+        String phoneNumber = SecurityContextHolder.getContext().getAuthentication().getName();
+        Optional<DetectorDTO> updated = service.updateDetectorDetectionInterval(
+                phoneNumber, macAddress, request.getDetectionInterval(), request.getPreferredLanguage());
+        return updated.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
     @Operation(summary = "Get the User with the Phone Number")
     @GetMapping("/{phoneNumber}")
     public ResponseEntity<UseResponse> getUser(@PathVariable String phoneNumber) {

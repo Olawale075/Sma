@@ -5,7 +5,6 @@ import lombok.Builder;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
-import sms.com.sms.enums.Language;
 
 import java.util.Set;
 
@@ -16,8 +15,6 @@ public class DetectorDTO {
 
     @NotBlank(message = "MAC address cannot be blank")
     private String macAddress;
-    private Language language;
-
 
     private Boolean status;
 
@@ -49,18 +46,17 @@ public class DetectorDTO {
 
     public DetectorDTO() {}
 
-    public DetectorDTO(String macAddress, Language language, Boolean status, Double temperature, Double humidity,
+    public DetectorDTO(String macAddress, Boolean status, Double temperature, Double humidity,
                        Double co2, Double co2Threshold, String wifiSsid, String wifiPassword,
                        String location, Set<String> phoneNumbers) {
-        this(macAddress, language, status, temperature, humidity, co2, co2Threshold, null,
+        this(macAddress, status, temperature, humidity, co2, co2Threshold, null,
                 wifiSsid, wifiPassword, location, phoneNumbers);
     }
 
-    public DetectorDTO(String macAddress, Language language, Boolean status, Double temperature, Double humidity,
+    public DetectorDTO(String macAddress, Boolean status, Double temperature, Double humidity,
                        Double co2, Double co2Threshold, Integer detectionInterval, String wifiSsid, String wifiPassword,
                        String location, Set<String> phoneNumbers) {
         this.macAddress = macAddress;
-        this.language = language;
         this.status = status;
         this.temperature = temperature;
         this.humidity = humidity;
@@ -78,10 +74,6 @@ public class DetectorDTO {
     // ==================================================
     public String getMacAddress() {
         return macAddress;
-    }
-
-    public Language getLanguage() {
-        return language;
     }
 
     public Boolean getStatus() {
@@ -131,10 +123,6 @@ public class DetectorDTO {
         this.macAddress = macAddress;
     }
 
-    public void setLanguage(Language language) {
-        this.language = language;
-    }
-
     public void setStatus(Boolean status) {
         this.status = status;
     }
@@ -182,7 +170,6 @@ public class DetectorDTO {
     public String toString() {
         return "DetectorDTO{" +
                 "macAddress='" + macAddress + '\'' +
-                ", language=" + language +
                 ", status=" + status +
                 ", temperature=" + temperature +
                 ", humidity=" + humidity +
@@ -208,7 +195,6 @@ public class DetectorDTO {
 
         if (macAddress != null ? !macAddress.equals(that.macAddress) : that.macAddress != null)
             return false;
-        if (language != that.language) return false;
         if (status != null ? !status.equals(that.status) : that.status != null) return false;
         if (temperature != null ? !temperature.equals(that.temperature) : that.temperature != null)
             return false;
@@ -231,7 +217,6 @@ public class DetectorDTO {
     @Override
     public int hashCode() {
         int result = macAddress != null ? macAddress.hashCode() : 0;
-        result = 31 * result + (language != null ? language.hashCode() : 0);
         result = 31 * result + (status != null ? status.hashCode() : 0);
         result = 31 * result + (temperature != null ? temperature.hashCode() : 0);
         result = 31 * result + (humidity != null ? humidity.hashCode() : 0);

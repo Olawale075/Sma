@@ -833,8 +833,8 @@
     let   FOCUS     = "General";   // universal by default
     const LANGUAGE_STORAGE_KEY = "smartEyes.aiLanguage";
     const SUPPORTED_LANGUAGES = ["en", "yo", "fr"];
-    let AI_LANGUAGE = localStorage.getItem(LANGUAGE_STORAGE_KEY) || "en";
-    if (!SUPPORTED_LANGUAGES.includes(AI_LANGUAGE)) AI_LANGUAGE = "en";
+    let AI_LANGUAGE = localStorage.getItem(LANGUAGE_STORAGE_KEY) || "yo";
+    if (!SUPPORTED_LANGUAGES.includes(AI_LANGUAGE)) AI_LANGUAGE = "yo";
 
     /* ----------------------------------------------------------------
      *  MAC ADDRESS
@@ -1236,12 +1236,6 @@
         };
 
         socket.send(JSON.stringify(message));
-        socket.send(JSON.stringify({
-            type: "set_language",
-            language: AI_LANGUAGE,
-            deviceId: id,
-            device_id: id
-        }));
         addLog("info",
             `Registered device (focus: ${FOCUS}, language: ${AI_LANGUAGE}${MAC_ADDRESS ? ", MAC " + MAC_ADDRESS : ""})`);
     }
@@ -1339,6 +1333,11 @@
                     localStorage.setItem(MAC_STORAGE_KEY, MAC_ADDRESS);
                     updateMacUI();
                     addLog("mac", "MAC synced from server: " + MAC_ADDRESS);
+                }
+                if (SUPPORTED_LANGUAGES.includes(json.language)) {
+                    AI_LANGUAGE = json.language;
+                    localStorage.setItem(LANGUAGE_STORAGE_KEY, AI_LANGUAGE);
+                    $("languageSelect").value = AI_LANGUAGE;
                 }
                 addLog("success",
                     "Device registered successfully" +

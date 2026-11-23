@@ -9,6 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import sms.com.sms.enums.Language;
 import sms.com.sms.enums.NotificationPreference;
 import sms.com.sms.enums.UserRole;
 
@@ -59,6 +60,11 @@ public class Users implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private NotificationPreference notificationPreference;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_language")
+    private Language preferredLanguage = Language.YO;
 
     @Transient
     private String otp;

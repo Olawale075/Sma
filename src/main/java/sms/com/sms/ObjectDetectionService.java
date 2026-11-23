@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import sms.com.sms.config.CameraWebSocketHandler;
-import sms.com.sms.dto.DetectorDTO;
 import sms.com.sms.enums.Language;
 
 import java.io.IOException;
@@ -52,8 +51,6 @@ public class ObjectDetectionService {
                 .map(engine -> engine.regionMatches(0, "DLJ", 0, 3)) // explicit lambda avoids confusion
                 .collect(Collectors.toList());
     }
-     DetectorDTO detectorDto =new DetectorDTO();
-    String ln = String.valueOf(detectorDto.getLanguage());
     public enum Domain {
         LIVING_THING,
         PLANT,
@@ -201,7 +198,7 @@ public class ObjectDetectionService {
 
     /** Legacy alias. focus may be any hint like "General", "Dog", "Plant", "Food", "Cassava Leaf". */
     public void processAndSendDetection(byte[] imageData, String deviceId, String location, String focus) {
-        processAndSendDetection(imageData, deviceId, location, focus, Language.EN);
+        processAndSendDetection(imageData, deviceId, location, focus, Language.YO);
     }
 
     public void processAndSendDetection(byte[] imageData, String deviceId, String location, String focus,
@@ -299,7 +296,7 @@ public class ObjectDetectionService {
     }
 
     public List<DetectionResult> detectEverything(byte[] imageData, String focus, Integer maxAttemptsOverride) throws IOException {
-        return detectEverything(imageData, focus, Language.EN, maxAttemptsOverride);
+        return detectEverything(imageData, focus, Language.YO, maxAttemptsOverride);
     }
 
     public List<DetectionResult> detectEverything(byte[] imageData, String focus, Language language,
@@ -311,7 +308,7 @@ public class ObjectDetectionService {
                                                  Integer maxAttemptsOverride, Double temperature,
                                                  Double humidity) throws IOException {
         String normalizedFocus = normalizeFocus(focus);
-        Language responseLanguage = language == null ? Language.EN : language;
+        Language responseLanguage = language == null ? Language.YO : language;
 
         if (!modelLoaded) {
             throw new IllegalStateException(
@@ -319,8 +316,9 @@ public class ObjectDetectionService {
         }
 
         logger.info(
-                "Detection request received. focus={}, imageBytes={}, installedAiModes={}, configuredProviders={}",
+                "Detection request received. focus={}, language={}, imageBytes={}, installedAiModes={}, configuredProviders={}",
                 normalizedFocus,
+                responseLanguage.getCode(),
                 imageData != null ? imageData.length : 0,
                 String.join(", ", getInstalledAiModes()),
                 String.join(", ", getConfiguredAiProviders()));
@@ -706,8 +704,11 @@ public class ObjectDetectionService {
                         "If a human or animal is present, describe what they are doing and any visible health signs. " +
                         "User focus hint: '%s' (may be 'General').\n" +
                         "%s" +
-                        "Write all human-readable text values in %s. Keep JSON keys, domain values, " +
-                        "health status values, and severity values exactly as specified in English.\n\n" +
+                        "Write every human-readable value in %s, including scene descriptions, object/crop labels, " +
+                        "summary, attribute names and values, condition names, treatment, prevention tips, and whenToAct. " +
+                        "Do not use English for human-readable values unless the selected language is English. " +
+                        "Keep JSON keys, domain values, health status values, and severity values exactly as specified in English. " +
+                        "The English examples in the schema are illustrative only; translate their human-readable content.\n\n" +
 
                         "Respond with ONLY valid JSON, no markdown, no code fences, no explanation. " +
                         "Use this exact schema:\n" +

@@ -12,6 +12,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import sms.com.sms.enums.NotificationPreference;
+import sms.com.sms.enums.Language;
 
 @Data
 @Builder
@@ -32,6 +33,8 @@ public class UserDTO {
     private String email;
 
     private NotificationPreference notificationPreference;
+
+    private Language preferredLanguage;
 
 //    @Builder.Default
 //    private Set<String> macAddresses = new HashSet<>();

@@ -1,5 +1,6 @@
 package sms.com.sms.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.Modifying;
@@ -15,6 +16,8 @@ public interface UsersRepository extends JpaRepository<Users, String> {
   boolean existsByPhonenumber(String phonenumber);
 
   Optional<Users> findByPhonenumber(String phonenumber);
+
+  List<Users> findByCropDeceaseDetectors_MacAddress(String macAddress);
 
   Optional<Users> findByEmail(String email);
 

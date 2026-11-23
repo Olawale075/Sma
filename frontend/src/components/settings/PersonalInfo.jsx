@@ -1,46 +1,33 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL || "https://fireeyes-detector-ib01.onrender.com";
+const LANGUAGE_STORAGE_KEY = "smartEyes.aiLanguage";
+
+function getStoredUser() {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) return null;
+
+  try {
+    return JSON.parse(storedUser);
+  } catch (error) {
+    console.error("Failed to parse stored user:", error);
+    return null;
+  }
+}
 
 function PersonalInfo() {
-  const [user, setUser] = useState(null);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phoneNumbers: "",
-    farmName: "",
+  const [user, setUser] = useState(getStoredUser);
+  const [saveError, setSaveError] = useState("");
+  const [formData, setFormData] = useState(() => {
+    const storedUser = getStoredUser() || {};
+    return {
+      name: storedUser.name || storedUser.fullName || storedUser.firstName || "",
+      email: storedUser.email || "",
+      phoneNumbers: storedUser.phoneNumbers || "",
+      farmName: storedUser.farmName || "",
+      preferredLanguage: storedUser.preferredLanguage || "yo",
+    };
   });
-
-  // LOAD USER FROM LOCAL STORAGE
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-
-    console.log("PersonalInfo stored user:", storedUser);
-
-    if (!storedUser) {
-      return;
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-
-      console.log("PersonalInfo parsed user:", parsedUser);
-
-      setUser(parsedUser);
-
-      setFormData({
-        name:
-          parsedUser.name ||
-          parsedUser.fullName ||
-          parsedUser.firstName ||
-          "",
-        email: parsedUser.email || "",
-        phoneNumbers: parsedUser.phoneNumbers || "",
-        farmName: parsedUser.farmName || "",
-      });
-    } catch (error) {
-      console.error("Failed to parse stored user:", error);
-    }
-  }, []);
 
   // HANDLE INPUT CHANGES
   const handleChange = (e) => {
@@ -53,24 +40,73 @@ function PersonalInfo() {
   };
 
   // SAVE CHANGES
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaveError("");
 
-    const updatedUser = {
-      ...user,
-      name: formData.name,
-      email: formData.email,
-      phoneNumbers: formData.phoneNumbers,
-      farmName: formData.farmName,
-    };
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setSaveError("Please sign in again before saving your preferences.");
+      return;
+    }
 
-    // Update local storage
-    localStorage.setItem("user", JSON.stringify(updatedUser));
+    const phoneNumber = formData.phoneNumbers || user?.phoneNumber;
+    if (!phoneNumber) {
+      setSaveError("Your account phone number is missing.");
+      return;
+    }
 
-    // Update React state
-    setUser(updatedUser);
+    try {
+      const response = await fetch(
+        `${API_URL}/user/user/${encodeURIComponent(phoneNumber)}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...user,
+            name: formData.name,
+            email: formData.email,
+            phoneNumbers: phoneNumber,
+            farmName: formData.farmName,
+            crop: user?.crop,
+            farmLocation: user?.farmLocation,
+            farmSize: user?.farmSize,
+            preferredLanguage: formData.preferredLanguage,
+          }),
+        }
+      );
 
-    alert("Personal information updated successfully!");
+      const responseBody = await response.text();
+      let updatedProfile;
+      try {
+        updatedProfile = responseBody ? JSON.parse(responseBody) : {};
+      } catch {
+        throw new Error(responseBody || "Could not save your profile.");
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          updatedProfile.message || updatedProfile.error || "Could not save your profile."
+        );
+      }
+
+      const updatedUser = {
+        ...user,
+        ...updatedProfile,
+        phoneNumbers: updatedProfile.phoneNumbers || phoneNumber,
+        preferredLanguage: updatedProfile.preferredLanguage || formData.preferredLanguage,
+      };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, updatedUser.preferredLanguage);
+      setUser(updatedUser);
+      window.dispatchEvent(new Event("userUpdated"));
+    } catch (error) {
+      setSaveError(error.message || "Could not save your profile.");
+    }
+
   };
 
   return (
@@ -147,7 +183,26 @@ function PersonalInfo() {
             />
           </div>
 
+          <div>
+            <label className="mb-2 block font-medium text-gray-700">
+              Preferred Language
+            </label>
+
+            <select
+              name="preferredLanguage"
+              value={formData.preferredLanguage}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="yo">Yoruba</option>
+              <option value="en">English</option>
+              <option value="fr">French</option>
+            </select>
+          </div>
+
         </div>
+
+        {saveError && <p className="mt-4 text-sm text-red-600">{saveError}</p>}
 
         <button
           type="submit"

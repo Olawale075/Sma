@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import sms.com.sms.enums.Language;
 
 @Data
 @AllArgsConstructor
@@ -30,4 +31,6 @@ public class SensorReadingRequest {
     @DecimalMax(value = "100.0", message = "soil moisture must be between 0 and 100%")
     @JsonAlias({"soil_moisture", "moisture", "soilMoistureLevel"})
     private Double soilMoisture;
+
+    private Language language;
 }
