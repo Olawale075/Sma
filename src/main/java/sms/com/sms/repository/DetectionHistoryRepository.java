@@ -34,6 +34,27 @@ public interface DetectionHistoryRepository extends JpaRepository<DetectionHisto
             Pageable pageable);
 
     @Query("""
+            SELECT history
+            FROM DetectionHistory history
+            WHERE history.userPhone = :userPhone
+              AND (:filterFrom = false OR history.createdAt >= :from)
+              AND (:filterTo = false OR history.createdAt <= :to)
+              AND (:focus = '' OR LOWER(history.focus) = LOWER(:focus))
+              AND (:className = '' OR LOWER(history.className) = LOWER(:className))
+              AND (:severity = '' OR UPPER(history.severity) = UPPER(:severity))
+            ORDER BY history.createdAt DESC
+            """)
+    List<DetectionHistory> findAllForExport(
+            @Param("userPhone") String userPhone,
+            @Param("filterFrom") boolean filterFrom,
+            @Param("from") Instant from,
+            @Param("filterTo") boolean filterTo,
+            @Param("to") Instant to,
+            @Param("focus") String focus,
+            @Param("className") String className,
+            @Param("severity") String severity);
+
+    @Query("""
             SELECT history.className AS label, COUNT(history) AS count
             FROM DetectionHistory history
             WHERE history.userPhone = :userPhone
